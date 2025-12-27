@@ -8,118 +8,93 @@ func init() {
 	sentinel.Tag("atom")
 }
 
-// Atomizer provides typed bidirectional resolution for any type T.
-// T must implement Validator to ensure data integrity before storage.
-type Atomizer[T Validator] struct { //nolint:govet // field order matches logical grouping
-	metadata  sentinel.Metadata
-	fields    []FieldDescriptor
-	fieldMap  map[string]TableType
-	atomize   Atomize[T]
-	deatomize Deatomize[T]
+// Atomizer provides typed bidirectional resolution for type T.
+type Atomizer[T any] struct {
+	inner *reflectAtomizer
 }
 
-// New creates an Atomizer for type T using the provided callbacks.
-// Inspects T at construction time to build field metadata.
-func New[T Validator](atomize Atomize[T], deatomize Deatomize[T]) *Atomizer[T] {
-	metadata := sentinel.Inspect[T]()
-	fields, fieldMap := buildFieldDescriptors(metadata)
+// Atomize converts an object to its atomic representation.
+// If T implements Atomizable, that method is used instead of reflection.
+func (a *Atomizer[T]) Atomize(obj *T) *Atom {
+	atom := a.inner.newAtom()
 
-	return &Atomizer[T]{
-		metadata:  metadata,
-		fields:    fields,
-		fieldMap:  fieldMap,
-		atomize:   atomize,
-		deatomize: deatomize,
-	}
-}
-
-// buildFieldDescriptors analyzes sentinel metadata to map fields to tables.
-func buildFieldDescriptors(meta sentinel.Metadata) (fields []FieldDescriptor, fieldMap map[string]TableType) {
-	fields = make([]FieldDescriptor, 0, len(meta.Fields))
-	fieldMap = make(map[string]TableType)
-
-	for _, f := range meta.Fields {
-		if atomTag, ok := f.Tags["atom"]; ok && atomTag == "-" {
-			continue
+	// Check for Atomizable interface (enables code generation)
+	if a.inner.hasAtomizable {
+		if az, ok := any(obj).(Atomizable); ok {
+			az.Atomize(atom)
+			return atom
 		}
-
-		table := tableFromType(f.Type)
-		if table == "" {
-			continue
-		}
-
-		name := f.Name
-		if atomTag, ok := f.Tags["atom"]; ok && atomTag != "" && atomTag != "id" {
-			name = atomTag
-		}
-
-		fd := FieldDescriptor{Name: name, Table: table}
-		fields = append(fields, fd)
-		fieldMap[name] = table
 	}
 
-	return fields, fieldMap
+	a.inner.atomize(obj, atom)
+	return atom
 }
 
-// tableFromType maps Go type strings to TableType.
-func tableFromType(goType string) TableType {
-	switch goType {
-	case "string":
-		return TableStrings
-	case "int", "int8", "int16", "int32", "int64",
-		"uint", "uint8", "uint16", "uint32", "uint64":
-		return TableInts
-	case "float32", "float64":
-		return TableFloats
-	case "bool":
-		return TableBools
-	case "time.Time":
-		return TableTimes
-	default:
-		return ""
+// Deatomize reconstructs an object from an Atom.
+// If T implements Deatomizable, that method is used instead of reflection.
+func (a *Atomizer[T]) Deatomize(atom *Atom) (*T, error) {
+	obj := new(T)
+
+	// Check for Deatomizable interface (enables code generation)
+	if a.inner.hasDeatomizable {
+		if dz, ok := any(obj).(Deatomizable); ok {
+			if err := dz.Deatomize(atom); err != nil {
+				return nil, err
+			}
+			return obj, nil
+		}
 	}
+
+	if err := a.inner.deatomize(atom, obj); err != nil {
+		return nil, err
+	}
+	return obj, nil
 }
 
-// Metadata returns the sentinel.Metadata for type T.
-func (a *Atomizer[T]) Metadata() sentinel.Metadata {
-	return a.metadata
+// NewAtom creates an Atom with only the maps needed for this type.
+func (a *Atomizer[T]) NewAtom() *Atom {
+	return a.inner.newAtom()
 }
 
-// Fields returns all field descriptors.
-func (a *Atomizer[T]) Fields() []FieldDescriptor {
-	return a.fields
+// Spec returns the type specification for type T.
+func (a *Atomizer[T]) Spec() Spec {
+	return a.inner.spec
+}
+
+// Fields returns all fields with their table mappings.
+func (a *Atomizer[T]) Fields() []Field {
+	var fields []Field
+	for i := range a.inner.plan {
+		fp := &a.inner.plan[i]
+		if fp.table != "" {
+			fields = append(fields, Field{
+				Name:  fp.name,
+				Table: fp.table,
+			})
+		}
+	}
+	return fields
 }
 
 // FieldsIn returns field names stored in the given table.
-func (a *Atomizer[T]) FieldsIn(table TableType) []string {
+func (a *Atomizer[T]) FieldsIn(table Table) []string {
 	var result []string
-	for _, f := range a.fields {
-		if f.Table == table {
-			result = append(result, f.Name)
+	for i := range a.inner.plan {
+		fp := &a.inner.plan[i]
+		if fp.table == table {
+			result = append(result, fp.name)
 		}
 	}
 	return result
 }
 
-// TableFor returns the table type for a field name.
-func (a *Atomizer[T]) TableFor(field string) (TableType, bool) {
-	table, ok := a.fieldMap[field]
-	return table, ok
-}
-
-// Atomize converts an object to its atomic representation.
-func (a *Atomizer[T]) Atomize(obj *T) (Atoms, error) {
-	if err := (*obj).Validate(); err != nil {
-		return Atoms{}, err
+// TableFor returns the table for a field name.
+func (a *Atomizer[T]) TableFor(field string) (Table, bool) {
+	for i := range a.inner.plan {
+		fp := &a.inner.plan[i]
+		if fp.name == field {
+			return fp.table, fp.table != ""
+		}
 	}
-	atoms := a.atomize(obj)
-	if atoms.ID == "" {
-		return Atoms{}, ErrMissingID
-	}
-	return atoms, nil
-}
-
-// Deatomize reconstructs an object from its atomic representation.
-func (a *Atomizer[T]) Deatomize(atoms Atoms) (*T, error) {
-	return a.deatomize(atoms)
+	return "", false
 }

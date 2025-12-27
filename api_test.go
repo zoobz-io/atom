@@ -5,16 +5,32 @@ import (
 	"time"
 )
 
-func TestTableTypeConstants(t *testing.T) {
+func TestTableConstants(t *testing.T) {
 	tests := []struct {
-		table    TableType
+		table    Table
 		expected string
 	}{
 		{TableStrings, "strings"},
 		{TableInts, "ints"},
+		{TableUints, "uints"},
 		{TableFloats, "floats"},
 		{TableBools, "bools"},
 		{TableTimes, "times"},
+		{TableBytes, "bytes"},
+		{TableBytePtrs, "byte_ptrs"},
+		{TableStringPtrs, "string_ptrs"},
+		{TableIntPtrs, "int_ptrs"},
+		{TableUintPtrs, "uint_ptrs"},
+		{TableFloatPtrs, "float_ptrs"},
+		{TableBoolPtrs, "bool_ptrs"},
+		{TableTimePtrs, "time_ptrs"},
+		{TableStringSlices, "string_slices"},
+		{TableIntSlices, "int_slices"},
+		{TableUintSlices, "uint_slices"},
+		{TableFloatSlices, "float_slices"},
+		{TableBoolSlices, "bool_slices"},
+		{TableTimeSlices, "time_slices"},
+		{TableByteSlices, "byte_slices"},
 	}
 
 	for _, tt := range tests {
@@ -27,11 +43,15 @@ func TestTableTypeConstants(t *testing.T) {
 func TestAllTables(t *testing.T) {
 	tables := AllTables()
 
-	if len(tables) != 5 {
-		t.Errorf("expected 5 tables, got %d", len(tables))
+	if len(tables) != 21 {
+		t.Errorf("expected 21 tables, got %d", len(tables))
 	}
 
-	expected := []TableType{TableStrings, TableInts, TableFloats, TableBools, TableTimes}
+	expected := []Table{
+		TableStrings, TableInts, TableUints, TableFloats, TableBools, TableTimes, TableBytes,
+		TableBytePtrs, TableStringPtrs, TableIntPtrs, TableUintPtrs, TableFloatPtrs, TableBoolPtrs, TableTimePtrs,
+		TableStringSlices, TableIntSlices, TableUintSlices, TableFloatSlices, TableBoolSlices, TableTimeSlices, TableByteSlices,
+	}
 	for i, table := range tables {
 		if table != expected[i] {
 			t.Errorf("expected %s at index %d, got %s", expected[i], i, table)
@@ -39,16 +59,32 @@ func TestAllTables(t *testing.T) {
 	}
 }
 
-func TestTableTypePrefix(t *testing.T) {
+func TestTablePrefix(t *testing.T) {
 	tests := []struct {
-		table    TableType
+		table    Table
 		expected string
 	}{
 		{TableStrings, "strings:"},
 		{TableInts, "ints:"},
+		{TableUints, "uints:"},
 		{TableFloats, "floats:"},
 		{TableBools, "bools:"},
 		{TableTimes, "times:"},
+		{TableBytes, "bytes:"},
+		{TableBytePtrs, "byte_ptrs:"},
+		{TableStringPtrs, "string_ptrs:"},
+		{TableIntPtrs, "int_ptrs:"},
+		{TableUintPtrs, "uint_ptrs:"},
+		{TableFloatPtrs, "float_ptrs:"},
+		{TableBoolPtrs, "bool_ptrs:"},
+		{TableTimePtrs, "time_ptrs:"},
+		{TableStringSlices, "string_slices:"},
+		{TableIntSlices, "int_slices:"},
+		{TableUintSlices, "uint_slices:"},
+		{TableFloatSlices, "float_slices:"},
+		{TableBoolSlices, "bool_slices:"},
+		{TableTimeSlices, "time_slices:"},
+		{TableByteSlices, "byte_slices:"},
 	}
 
 	for _, tt := range tests {
@@ -58,73 +94,142 @@ func TestTableTypePrefix(t *testing.T) {
 	}
 }
 
-func TestNewAtoms(t *testing.T) {
-	id := "test-id-123"
-	atoms := NewAtoms(id)
-
-	if atoms.ID != id {
-		t.Errorf("expected ID %s, got %s", id, atoms.ID)
+func TestAtomMapsAreUsable(t *testing.T) {
+	atom := Atom{
+		Strings:      make(map[string]string),
+		Ints:         make(map[string]int64),
+		Uints:        make(map[string]uint64),
+		Floats:       make(map[string]float64),
+		Bools:        make(map[string]bool),
+		Times:        make(map[string]time.Time),
+		Bytes:        make(map[string][]byte),
+		BytePtrs:     make(map[string]*[]byte),
+		StringPtrs:   make(map[string]*string),
+		IntPtrs:      make(map[string]*int64),
+		UintPtrs:     make(map[string]*uint64),
+		FloatPtrs:    make(map[string]*float64),
+		BoolPtrs:     make(map[string]*bool),
+		TimePtrs:     make(map[string]*time.Time),
+		StringSlices: make(map[string][]string),
+		IntSlices:    make(map[string][]int64),
+		UintSlices:   make(map[string][]uint64),
+		FloatSlices:  make(map[string][]float64),
+		BoolSlices:   make(map[string][]bool),
+		TimeSlices:   make(map[string][]time.Time),
+		ByteSlices:   make(map[string][][]byte),
+		Nested:       make(map[string]Atom),
+		NestedSlices: make(map[string][]Atom),
 	}
-
-	if atoms.Strings == nil {
-		t.Error("expected Strings map to be initialized")
-	}
-	if atoms.Ints == nil {
-		t.Error("expected Ints map to be initialized")
-	}
-	if atoms.Floats == nil {
-		t.Error("expected Floats map to be initialized")
-	}
-	if atoms.Bools == nil {
-		t.Error("expected Bools map to be initialized")
-	}
-	if atoms.Times == nil {
-		t.Error("expected Times map to be initialized")
-	}
-}
-
-func TestNewAtomsEmptyID(t *testing.T) {
-	atoms := NewAtoms("")
-
-	if atoms.ID != "" {
-		t.Errorf("expected empty ID, got %s", atoms.ID)
-	}
-
-	// Maps should still be initialized
-	if atoms.Strings == nil {
-		t.Error("expected Strings map to be initialized even with empty ID")
-	}
-}
-
-func TestAtomsMapsAreUsable(t *testing.T) {
-	atoms := NewAtoms("test")
 
 	// Verify maps can be written to
-	atoms.Strings["key"] = "value"
-	atoms.Ints["count"] = 42
-	atoms.Floats["rate"] = 3.14
-	atoms.Bools["active"] = true
-	atoms.Times["created"] = time.Now()
+	atom.Strings["key"] = "value"
+	atom.Ints["count"] = 42
+	atom.Floats["rate"] = 3.14
+	atom.Bools["active"] = true
+	atom.Times["created"] = time.Now()
+	atom.Bytes["data"] = []byte{0x01, 0x02, 0x03}
 
-	if atoms.Strings["key"] != "value" {
+	strVal := "nullable"
+	intVal := int64(123)
+	floatVal := 2.71
+	boolVal := true
+	timeVal := time.Now()
+	atom.StringPtrs["opt_str"] = &strVal
+	atom.IntPtrs["opt_int"] = &intVal
+	atom.FloatPtrs["opt_float"] = &floatVal
+	atom.BoolPtrs["opt_bool"] = &boolVal
+	atom.TimePtrs["opt_time"] = &timeVal
+
+	if atom.Strings["key"] != "value" {
 		t.Error("failed to store string value")
 	}
-	if atoms.Ints["count"] != 42 {
+	if atom.Ints["count"] != 42 {
 		t.Error("failed to store int value")
 	}
-	if atoms.Floats["rate"] != 3.14 {
+	if atom.Floats["rate"] != 3.14 {
 		t.Error("failed to store float value")
 	}
-	if atoms.Bools["active"] != true {
+	if atom.Bools["active"] != true {
 		t.Error("failed to store bool value")
 	}
-	if atoms.Times["created"].IsZero() {
+	if atom.Times["created"].IsZero() {
 		t.Error("failed to store time value")
+	}
+	if len(atom.Bytes["data"]) != 3 {
+		t.Error("failed to store bytes value")
+	}
+	if *atom.StringPtrs["opt_str"] != "nullable" {
+		t.Error("failed to store string pointer value")
+	}
+	if *atom.IntPtrs["opt_int"] != 123 {
+		t.Error("failed to store int pointer value")
+	}
+	if *atom.FloatPtrs["opt_float"] != 2.71 {
+		t.Error("failed to store float pointer value")
+	}
+	if *atom.BoolPtrs["opt_bool"] != true {
+		t.Error("failed to store bool pointer value")
+	}
+	if atom.TimePtrs["opt_time"].IsZero() {
+		t.Error("failed to store time pointer value")
+	}
+
+	// Test nil pointer storage
+	atom.StringPtrs["nil_str"] = nil
+	if atom.StringPtrs["nil_str"] != nil {
+		t.Error("failed to store nil string pointer")
+	}
+
+	// Test slice storage
+	atom.StringSlices["tags"] = []string{"a", "b", "c"}
+	atom.IntSlices["scores"] = []int64{1, 2, 3}
+	atom.FloatSlices["rates"] = []float64{1.1, 2.2}
+	atom.BoolSlices["flags"] = []bool{true, false}
+	atom.TimeSlices["dates"] = []time.Time{time.Now()}
+	atom.ByteSlices["chunks"] = [][]byte{{0x01}, {0x02}}
+
+	if len(atom.StringSlices["tags"]) != 3 {
+		t.Error("failed to store string slice")
+	}
+	if len(atom.IntSlices["scores"]) != 3 {
+		t.Error("failed to store int slice")
+	}
+	if len(atom.FloatSlices["rates"]) != 2 {
+		t.Error("failed to store float slice")
+	}
+	if len(atom.BoolSlices["flags"]) != 2 {
+		t.Error("failed to store bool slice")
+	}
+	if len(atom.TimeSlices["dates"]) != 1 {
+		t.Error("failed to store time slice")
+	}
+	if len(atom.ByteSlices["chunks"]) != 2 {
+		t.Error("failed to store byte slice")
+	}
+
+	// Test nested Atom storage
+	child := Atom{Strings: map[string]string{"name": "child"}}
+	atom.Nested["child"] = child
+
+	if atom.Nested["child"].Strings["name"] != "child" {
+		t.Error("failed to store nested Atom")
+	}
+
+	// Test nested Atom slice storage
+	child1 := Atom{Strings: map[string]string{"name": "item-1"}}
+	child2 := Atom{Strings: map[string]string{"name": "item-2"}}
+	atom.NestedSlices["items"] = []Atom{child1, child2}
+
+	if len(atom.NestedSlices["items"]) != 2 {
+		t.Error("failed to store nested Atom slice")
+	}
+	if atom.NestedSlices["items"][0].Strings["name"] != "item-1" {
+		t.Error("failed to store first nested Atom in slice")
 	}
 }
 
-func TestFieldDescriptor(t *testing.T) {
-	fd := FieldDescriptor{
+func TestField(t *testing.T) {
+	fd := Field{
 		Name:  "CustomerID",
 		Table: TableStrings,
 	}
@@ -137,20 +242,36 @@ func TestFieldDescriptor(t *testing.T) {
 	}
 }
 
-func TestFieldDescriptorAllTables(t *testing.T) {
+func TestFieldAllTables(t *testing.T) {
 	tests := []struct {
 		name  string
-		table TableType
+		table Table
 	}{
 		{"StringField", TableStrings},
 		{"IntField", TableInts},
+		{"UintField", TableUints},
 		{"FloatField", TableFloats},
 		{"BoolField", TableBools},
 		{"TimeField", TableTimes},
+		{"BytesField", TableBytes},
+		{"BytePtrField", TableBytePtrs},
+		{"StringPtrField", TableStringPtrs},
+		{"IntPtrField", TableIntPtrs},
+		{"UintPtrField", TableUintPtrs},
+		{"FloatPtrField", TableFloatPtrs},
+		{"BoolPtrField", TableBoolPtrs},
+		{"TimePtrField", TableTimePtrs},
+		{"StringSliceField", TableStringSlices},
+		{"IntSliceField", TableIntSlices},
+		{"UintSliceField", TableUintSlices},
+		{"FloatSliceField", TableFloatSlices},
+		{"BoolSliceField", TableBoolSlices},
+		{"TimeSliceField", TableTimeSlices},
+		{"ByteSliceField", TableByteSlices},
 	}
 
 	for _, tt := range tests {
-		fd := FieldDescriptor{Name: tt.name, Table: tt.table}
+		fd := Field{Name: tt.name, Table: tt.table}
 		if fd.Name != tt.name {
 			t.Errorf("expected Name %s, got %s", tt.name, fd.Name)
 		}

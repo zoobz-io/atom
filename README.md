@@ -32,31 +32,35 @@ type User struct {
     CreatedAt time.Time
 }
 
-atomizer := atom.New[User](atomizeUser, deatomizeUser)
+// Register the type once
+atomizer, _ := atom.Use[User]()
 
-// Decompose to atoms
-atoms, _ := atomizer.Atomize(&user)
-// atoms.Strings["Name"] = "Alice"
-// atoms.Ints["Age"] = 30
-// atoms.Floats["Balance"] = 100.50
+// Decompose to atom
+user := &User{Name: "Alice", Age: 30, Balance: 100.50, Active: true}
+a := atomizer.Atomize(user)
+// a.Strings["Name"] = "Alice"
+// a.Ints["Age"] = 30
+// a.Floats["Balance"] = 100.50
+// a.Bools["Active"] = true
 
-// Reconstruct from atoms
-user, _ := atomizer.Deatomize(atoms)
+// Reconstruct from atom
+restored, _ := atomizer.Deatomize(a)
 ```
 
-You provide the transformation functions. Atom handles:
-- **Type segregation** — strings, ints, floats, bools, times in separate maps
+Atom handles:
+- **Type segregation** — scalars, pointers, slices, nested objects in separate typed maps
 - **Field metadata** — automatic introspection via sentinel
-- **Validation** — runs before atomization
-- **Binary encoding** — utilities for storage-ready byte conversion
+- **Numeric width conversion** — int8/uint32/etc. safely converted with overflow detection
 
 ## Features
 
 - **Storage-agnostic** — bring your own persistence layer
 - **Type-safe generics** — `Atomizer[T]` catches errors at compile time
 - **Sentinel integration** — automatic field discovery and metadata
-- **Binary encoding** — big-endian ints (sortable), RFC3339Nano times
-- **Validation hooks** — implement `Validator` interface for pre-atomization checks
+- **Nullable fields** — pointer types (`*string`, `*int64`, etc.) with explicit nil handling
+- **Slice support** — type-safe storage for `[]string`, `[]int64`, etc.
+- **Nested composition** — embed Atoms within Atoms for complex object graphs
+- **Custom implementations** — implement `Atomizable`/`Deatomizable` interfaces to bypass reflection
 
 ## Install
 
@@ -73,53 +77,125 @@ package main
 
 import (
     "fmt"
-    "time"
 
     "github.com/zoobzio/atom"
 )
 
 type Order struct {
-    ID     string  `atom:"id"`
+    ID     string
     Total  float64
     Status string
 }
 
-func (o Order) Validate() error {
-    if o.ID == "" {
-        return fmt.Errorf("ID required")
-    }
-    return nil
-}
-
-func atomizeOrder(o *Order) atom.Atoms {
-    atoms := atom.NewAtoms(o.ID)
-    atoms.Floats["Total"] = o.Total
-    atoms.Strings["Status"] = o.Status
-    return *atoms
-}
-
-func deatomizeOrder(atoms atom.Atoms) (*Order, error) {
-    return &Order{
-        ID:     atoms.ID,
-        Total:  atoms.Floats["Total"],
-        Status: atoms.Strings["Status"],
-    }, nil
-}
-
 func main() {
-    atomizer := atom.New[Order](atomizeOrder, deatomizeOrder)
+    // Register the type
+    atomizer, err := atom.Use[Order]()
+    if err != nil {
+        panic(err)
+    }
 
     order := &Order{ID: "order-123", Total: 99.99, Status: "pending"}
 
     // Decompose
-    atoms, _ := atomizer.Atomize(order)
-    fmt.Printf("ID: %s, Total: %.2f\n", atoms.ID, atoms.Floats["Total"])
+    a := atomizer.Atomize(order)
+    fmt.Printf("ID: %s, Total: %.2f\n", a.Strings["ID"], a.Floats["Total"])
 
     // Reconstruct
-    restored, _ := atomizer.Deatomize(atoms)
+    restored, _ := atomizer.Deatomize(a)
     fmt.Printf("Restored: %+v\n", restored)
 }
 ```
+
+## Usage
+
+### Basic Types
+
+All Go primitive types are supported and stored in type-segregated maps:
+
+```go
+type Example struct {
+    Name    string     // → Atom.Strings
+    Age     int        // → Atom.Ints (as int64)
+    Count   uint64     // → Atom.Uints
+    Rate    float64    // → Atom.Floats
+    Active  bool       // → Atom.Bools
+    Created time.Time  // → Atom.Times
+    Data    []byte     // → Atom.Bytes
+}
+```
+
+### Nullable Fields (Pointers)
+
+Use pointer types to represent optional/nullable fields:
+
+```go
+type Profile struct {
+    ID       string
+    Nickname *string  // → Atom.StringPtrs (nil preserved)
+    Age      *int64   // → Atom.IntPtrs
+    Bio      *[]byte  // → Atom.BytePtrs
+}
+
+atomizer, _ := atom.Use[Profile]()
+profile := &Profile{ID: "user-1", Nickname: nil}
+
+a := atomizer.Atomize(profile)
+// a.StringPtrs["Nickname"] == nil (explicitly stored)
+```
+
+### Slice Fields
+
+Store collections of primitive values:
+
+```go
+type Article struct {
+    ID     string
+    Tags   []string   // → Atom.StringSlices
+    Scores []int64    // → Atom.IntSlices
+    Counts []uint32   // → Atom.UintSlices (as []uint64)
+}
+```
+
+### Nested Structs
+
+Compose complex objects using nested Atoms:
+
+```go
+type Address struct {
+    Street string
+    City   string
+}
+
+type Person struct {
+    ID      string
+    Name    string
+    Address Address    // → Atom.Nested["Address"]
+    Friends []Person   // → Atom.NestedSlices["Friends"]
+}
+
+atomizer, _ := atom.Use[Person]()
+```
+
+### Custom Atomization
+
+Implement `Atomizable` and/or `Deatomizable` to bypass reflection:
+
+```go
+type Custom struct {
+    Value int
+}
+
+func (c *Custom) Atomize(a *atom.Atom) {
+    a.Ints["Value"] = int64(c.Value * 2) // custom logic
+}
+
+func (c *Custom) Deatomize(a *atom.Atom) error {
+    c.Value = int(a.Ints["Value"] / 2)
+    return nil
+}
+```
+
+This enables code generation for high-performance scenarios.
 
 ## API Reference
 
@@ -128,57 +204,88 @@ func main() {
 | Type | Purpose |
 |------|---------|
 | `Atomizer[T]` | Generic atomizer for type T |
-| `Atoms` | Container for decomposed atomic values |
-| `Atomize[T]` | Function type: `*T` → `Atoms` |
-| `Deatomize[T]` | Function type: `Atoms` → `(*T, error)` |
-| `Validator` | Interface with `Validate() error` |
+| `Atom` | Container for decomposed atomic values |
+| `Field` | Maps field name to storage table |
+| `Atomizable` | Interface for custom atomization |
+| `Deatomizable` | Interface for custom deatomization |
+
+### Functions
+
+| Function | Purpose |
+|----------|---------|
+| `Use[T]()` | Register and return an `Atomizer[T]` for type T |
+| `AllTables()` | Return all table types in canonical order |
 
 ### Atomizer Methods
 
 | Method | Purpose |
 |--------|---------|
-| `New[T](atomize, deatomize)` | Create an atomizer for type T |
-| `Atomize(obj)` | Decompose object to atoms (validates first) |
-| `Deatomize(atoms)` | Reconstruct object from atoms |
-| `Metadata()` | Get sentinel metadata for type T |
+| `Atomize(obj)` | Decompose object to atom |
+| `Deatomize(atom)` | Reconstruct object from atom |
+| `NewAtom()` | Create an Atom with pre-sized maps for type T |
+| `Spec()` | Get type specification for type T |
 | `Fields()` | Get all field descriptors |
 | `FieldsIn(table)` | Get field names for a table type |
 | `TableFor(field)` | Get table type for a field name |
 
 ### Table Types
 
-| TableType | Go Types |
-|-----------|----------|
-| `TableStrings` | `string` |
-| `TableInts` | `int`, `int8`...`int64`, `uint`...`uint64` |
-| `TableFloats` | `float32`, `float64` |
-| `TableBools` | `bool` |
-| `TableTimes` | `time.Time` |
+**Scalars:**
 
-### Encoding Utilities
+| TableType | Go Types | Atom Field |
+|-----------|----------|------------|
+| `TableStrings` | `string` | `Strings` |
+| `TableInts` | `int`, `int8`...`int64` | `Ints` |
+| `TableUints` | `uint`, `uint8`...`uint64` | `Uints` |
+| `TableFloats` | `float32`, `float64` | `Floats` |
+| `TableBools` | `bool` | `Bools` |
+| `TableTimes` | `time.Time` | `Times` |
+| `TableBytes` | `[]byte` | `Bytes` |
 
-| Function | Format |
-|----------|--------|
-| `encodeString` / `decodeString` | UTF-8 bytes |
-| `encodeInt64` / `decodeInt64` | Big-endian (sortable) |
-| `encodeFloat64` / `decodeFloat64` | IEEE 754 binary |
-| `encodeBool` / `decodeBool` | Single byte (0/1) |
-| `encodeTime` / `decodeTime` | RFC3339Nano string |
+**Pointers (nullable):**
+
+| TableType | Go Types | Atom Field |
+|-----------|----------|------------|
+| `TableStringPtrs` | `*string` | `StringPtrs` |
+| `TableIntPtrs` | `*int`, `*int8`...`*int64` | `IntPtrs` |
+| `TableUintPtrs` | `*uint`, `*uint8`...`*uint64` | `UintPtrs` |
+| `TableFloatPtrs` | `*float32`, `*float64` | `FloatPtrs` |
+| `TableBoolPtrs` | `*bool` | `BoolPtrs` |
+| `TableTimePtrs` | `*time.Time` | `TimePtrs` |
+| `TableBytePtrs` | `*[]byte` | `BytePtrs` |
+
+**Slices:**
+
+| TableType | Go Types | Atom Field |
+|-----------|----------|------------|
+| `TableStringSlices` | `[]string` | `StringSlices` |
+| `TableIntSlices` | `[]int`, `[]int64`, etc. | `IntSlices` |
+| `TableUintSlices` | `[]uint`, `[]uint64`, etc. | `UintSlices` |
+| `TableFloatSlices` | `[]float32`, `[]float64` | `FloatSlices` |
+| `TableBoolSlices` | `[]bool` | `BoolSlices` |
+| `TableTimeSlices` | `[]time.Time` | `TimeSlices` |
+| `TableByteSlices` | `[][]byte` | `ByteSlices` |
+
+**Nested:**
+
+| Field | Purpose |
+|-------|---------|
+| `Nested` | `map[string]Atom` for single nested structs |
+| `NestedSlices` | `map[string][]Atom` for slices of nested structs |
 
 ## Design
 
 Atom is intentionally minimal. It provides:
 
-1. **Decomposition abstraction** — the `Atoms` container and transformation types
+1. **Decomposition abstraction** — the `Atom` container and transformation types
 2. **Field introspection** — via sentinel integration
-3. **Encoding utilities** — for storage-ready byte conversion
 
 It does **not** provide:
 - Storage backends
 - Query interfaces
 - Caching layers
 
-This design allows atom to be used within storage libraries (like grub) without circular dependencies.
+This design allows atom to be used within storage libraries without circular dependencies.
 
 ## Contributing
 
