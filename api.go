@@ -96,6 +96,209 @@ type Field struct {
 	Table Table
 }
 
+// Clone returns a deep copy of the Atom.
+func (a *Atom) Clone() *Atom {
+	if a == nil {
+		return nil
+	}
+
+	clone := &Atom{Spec: a.Spec}
+
+	// Clone scalar maps
+	if a.Strings != nil {
+		clone.Strings = make(map[string]string, len(a.Strings))
+		for k, v := range a.Strings {
+			clone.Strings[k] = v
+		}
+	}
+	if a.Ints != nil {
+		clone.Ints = make(map[string]int64, len(a.Ints))
+		for k, v := range a.Ints {
+			clone.Ints[k] = v
+		}
+	}
+	if a.Uints != nil {
+		clone.Uints = make(map[string]uint64, len(a.Uints))
+		for k, v := range a.Uints {
+			clone.Uints[k] = v
+		}
+	}
+	if a.Floats != nil {
+		clone.Floats = make(map[string]float64, len(a.Floats))
+		for k, v := range a.Floats {
+			clone.Floats[k] = v
+		}
+	}
+	if a.Bools != nil {
+		clone.Bools = make(map[string]bool, len(a.Bools))
+		for k, v := range a.Bools {
+			clone.Bools[k] = v
+		}
+	}
+	if a.Times != nil {
+		clone.Times = make(map[string]time.Time, len(a.Times))
+		for k, v := range a.Times {
+			clone.Times[k] = v
+		}
+	}
+	if a.Bytes != nil {
+		clone.Bytes = make(map[string][]byte, len(a.Bytes))
+		for k, v := range a.Bytes {
+			cp := make([]byte, len(v))
+			copy(cp, v)
+			clone.Bytes[k] = cp
+		}
+	}
+
+	// Clone pointer maps
+	if a.StringPtrs != nil {
+		clone.StringPtrs = make(map[string]*string, len(a.StringPtrs))
+		for k, v := range a.StringPtrs {
+			if v != nil {
+				cp := *v
+				clone.StringPtrs[k] = &cp
+			}
+		}
+	}
+	if a.IntPtrs != nil {
+		clone.IntPtrs = make(map[string]*int64, len(a.IntPtrs))
+		for k, v := range a.IntPtrs {
+			if v != nil {
+				cp := *v
+				clone.IntPtrs[k] = &cp
+			}
+		}
+	}
+	if a.UintPtrs != nil {
+		clone.UintPtrs = make(map[string]*uint64, len(a.UintPtrs))
+		for k, v := range a.UintPtrs {
+			if v != nil {
+				cp := *v
+				clone.UintPtrs[k] = &cp
+			}
+		}
+	}
+	if a.FloatPtrs != nil {
+		clone.FloatPtrs = make(map[string]*float64, len(a.FloatPtrs))
+		for k, v := range a.FloatPtrs {
+			if v != nil {
+				cp := *v
+				clone.FloatPtrs[k] = &cp
+			}
+		}
+	}
+	if a.BoolPtrs != nil {
+		clone.BoolPtrs = make(map[string]*bool, len(a.BoolPtrs))
+		for k, v := range a.BoolPtrs {
+			if v != nil {
+				cp := *v
+				clone.BoolPtrs[k] = &cp
+			}
+		}
+	}
+	if a.TimePtrs != nil {
+		clone.TimePtrs = make(map[string]*time.Time, len(a.TimePtrs))
+		for k, v := range a.TimePtrs {
+			if v != nil {
+				cp := *v
+				clone.TimePtrs[k] = &cp
+			}
+		}
+	}
+	if a.BytePtrs != nil {
+		clone.BytePtrs = make(map[string]*[]byte, len(a.BytePtrs))
+		for k, v := range a.BytePtrs {
+			if v != nil {
+				cp := make([]byte, len(*v))
+				copy(cp, *v)
+				clone.BytePtrs[k] = &cp
+			}
+		}
+	}
+
+	// Clone slice maps
+	if a.StringSlices != nil {
+		clone.StringSlices = make(map[string][]string, len(a.StringSlices))
+		for k, v := range a.StringSlices {
+			cp := make([]string, len(v))
+			copy(cp, v)
+			clone.StringSlices[k] = cp
+		}
+	}
+	if a.IntSlices != nil {
+		clone.IntSlices = make(map[string][]int64, len(a.IntSlices))
+		for k, v := range a.IntSlices {
+			cp := make([]int64, len(v))
+			copy(cp, v)
+			clone.IntSlices[k] = cp
+		}
+	}
+	if a.UintSlices != nil {
+		clone.UintSlices = make(map[string][]uint64, len(a.UintSlices))
+		for k, v := range a.UintSlices {
+			cp := make([]uint64, len(v))
+			copy(cp, v)
+			clone.UintSlices[k] = cp
+		}
+	}
+	if a.FloatSlices != nil {
+		clone.FloatSlices = make(map[string][]float64, len(a.FloatSlices))
+		for k, v := range a.FloatSlices {
+			cp := make([]float64, len(v))
+			copy(cp, v)
+			clone.FloatSlices[k] = cp
+		}
+	}
+	if a.BoolSlices != nil {
+		clone.BoolSlices = make(map[string][]bool, len(a.BoolSlices))
+		for k, v := range a.BoolSlices {
+			cp := make([]bool, len(v))
+			copy(cp, v)
+			clone.BoolSlices[k] = cp
+		}
+	}
+	if a.TimeSlices != nil {
+		clone.TimeSlices = make(map[string][]time.Time, len(a.TimeSlices))
+		for k, v := range a.TimeSlices {
+			cp := make([]time.Time, len(v))
+			copy(cp, v)
+			clone.TimeSlices[k] = cp
+		}
+	}
+	if a.ByteSlices != nil {
+		clone.ByteSlices = make(map[string][][]byte, len(a.ByteSlices))
+		for k, v := range a.ByteSlices {
+			cp := make([][]byte, len(v))
+			for i, b := range v {
+				cp[i] = make([]byte, len(b))
+				copy(cp[i], b)
+			}
+			clone.ByteSlices[k] = cp
+		}
+	}
+
+	// Clone nested
+	if a.Nested != nil {
+		clone.Nested = make(map[string]Atom, len(a.Nested))
+		for k := range a.Nested {
+			v := a.Nested[k]
+			clone.Nested[k] = *v.Clone()
+		}
+	}
+	if a.NestedSlices != nil {
+		clone.NestedSlices = make(map[string][]Atom, len(a.NestedSlices))
+		for k, v := range a.NestedSlices {
+			cp := make([]Atom, len(v))
+			for i := range v {
+				cp[i] = *v[i].Clone()
+			}
+			clone.NestedSlices[k] = cp
+		}
+	}
+
+	return clone
+}
+
 // Atomizable allows types to provide custom atomization logic.
 // If a type implements this interface, it will be used instead of reflection.
 // This enables code generation to avoid reflection overhead.

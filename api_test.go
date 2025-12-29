@@ -280,3 +280,227 @@ func TestFieldAllTables(t *testing.T) {
 		}
 	}
 }
+
+func TestClone_Nil(t *testing.T) {
+	var a *Atom
+	clone := a.Clone()
+	if clone != nil {
+		t.Error("expected nil clone for nil receiver")
+	}
+}
+
+func TestClone_Empty(t *testing.T) {
+	a := &Atom{}
+	clone := a.Clone()
+	if clone == nil {
+		t.Fatal("expected non-nil clone")
+	}
+	if clone == a {
+		t.Error("clone should be a different pointer")
+	}
+}
+
+func TestClone_Scalars(t *testing.T) {
+	now := time.Now()
+	a := &Atom{
+		Strings: map[string]string{"name": "test"},
+		Ints:    map[string]int64{"count": 42},
+		Uints:   map[string]uint64{"id": 123},
+		Floats:  map[string]float64{"rate": 3.14},
+		Bools:   map[string]bool{"active": true},
+		Times:   map[string]time.Time{"created": now},
+		Bytes:   map[string][]byte{"data": {0x01, 0x02, 0x03}},
+	}
+
+	clone := a.Clone()
+
+	// Verify values copied
+	if clone.Strings["name"] != "test" {
+		t.Error("string not cloned")
+	}
+	if clone.Ints["count"] != 42 {
+		t.Error("int not cloned")
+	}
+	if clone.Uints["id"] != 123 {
+		t.Error("uint not cloned")
+	}
+	if clone.Floats["rate"] != 3.14 {
+		t.Error("float not cloned")
+	}
+	if clone.Bools["active"] != true {
+		t.Error("bool not cloned")
+	}
+	if !clone.Times["created"].Equal(now) {
+		t.Error("time not cloned")
+	}
+	if len(clone.Bytes["data"]) != 3 || clone.Bytes["data"][0] != 0x01 {
+		t.Error("bytes not cloned")
+	}
+
+	// Verify deep copy - modifying original doesn't affect clone
+	a.Strings["name"] = "modified"
+	a.Ints["count"] = 999
+	a.Bytes["data"][0] = 0xFF
+
+	if clone.Strings["name"] != "test" {
+		t.Error("clone string affected by original modification")
+	}
+	if clone.Ints["count"] != 42 {
+		t.Error("clone int affected by original modification")
+	}
+	if clone.Bytes["data"][0] != 0x01 {
+		t.Error("clone bytes affected by original modification")
+	}
+}
+
+func TestClone_Pointers(t *testing.T) {
+	strVal := "hello"
+	intVal := int64(42)
+	uintVal := uint64(123)
+	floatVal := 3.14
+	boolVal := true
+	timeVal := time.Now()
+	bytesVal := []byte{0x01, 0x02}
+
+	a := &Atom{
+		StringPtrs: map[string]*string{"s": &strVal},
+		IntPtrs:    map[string]*int64{"i": &intVal},
+		UintPtrs:   map[string]*uint64{"u": &uintVal},
+		FloatPtrs:  map[string]*float64{"f": &floatVal},
+		BoolPtrs:   map[string]*bool{"b": &boolVal},
+		TimePtrs:   map[string]*time.Time{"t": &timeVal},
+		BytePtrs:   map[string]*[]byte{"by": &bytesVal},
+	}
+
+	clone := a.Clone()
+
+	// Verify values copied
+	if *clone.StringPtrs["s"] != "hello" {
+		t.Error("string pointer not cloned")
+	}
+	if *clone.IntPtrs["i"] != 42 {
+		t.Error("int pointer not cloned")
+	}
+	if *clone.UintPtrs["u"] != 123 {
+		t.Error("uint pointer not cloned")
+	}
+	if *clone.FloatPtrs["f"] != 3.14 {
+		t.Error("float pointer not cloned")
+	}
+	if *clone.BoolPtrs["b"] != true {
+		t.Error("bool pointer not cloned")
+	}
+	if !clone.TimePtrs["t"].Equal(timeVal) {
+		t.Error("time pointer not cloned")
+	}
+	if len(*clone.BytePtrs["by"]) != 2 {
+		t.Error("byte pointer not cloned")
+	}
+
+	// Verify deep copy - pointers are different
+	if clone.StringPtrs["s"] == a.StringPtrs["s"] {
+		t.Error("string pointer should be different address")
+	}
+	if clone.IntPtrs["i"] == a.IntPtrs["i"] {
+		t.Error("int pointer should be different address")
+	}
+
+	// Modify original pointer value
+	*a.StringPtrs["s"] = "modified"
+	if *clone.StringPtrs["s"] != "hello" {
+		t.Error("clone string pointer affected by original modification")
+	}
+}
+
+func TestClone_Slices(t *testing.T) {
+	a := &Atom{
+		StringSlices: map[string][]string{"tags": {"a", "b", "c"}},
+		IntSlices:    map[string][]int64{"nums": {1, 2, 3}},
+		UintSlices:   map[string][]uint64{"ids": {10, 20}},
+		FloatSlices:  map[string][]float64{"rates": {1.1, 2.2}},
+		BoolSlices:   map[string][]bool{"flags": {true, false}},
+		TimeSlices:   map[string][]time.Time{"dates": {time.Now()}},
+		ByteSlices:   map[string][][]byte{"chunks": {{0x01}, {0x02, 0x03}}},
+	}
+
+	clone := a.Clone()
+
+	// Verify values copied
+	if len(clone.StringSlices["tags"]) != 3 || clone.StringSlices["tags"][0] != "a" {
+		t.Error("string slice not cloned")
+	}
+	if len(clone.IntSlices["nums"]) != 3 || clone.IntSlices["nums"][0] != 1 {
+		t.Error("int slice not cloned")
+	}
+	if len(clone.ByteSlices["chunks"]) != 2 || clone.ByteSlices["chunks"][1][0] != 0x02 {
+		t.Error("byte slices not cloned")
+	}
+
+	// Verify deep copy
+	a.StringSlices["tags"][0] = "modified"
+	a.IntSlices["nums"][0] = 999
+	a.ByteSlices["chunks"][0][0] = 0xFF
+
+	if clone.StringSlices["tags"][0] != "a" {
+		t.Error("clone string slice affected by original modification")
+	}
+	if clone.IntSlices["nums"][0] != 1 {
+		t.Error("clone int slice affected by original modification")
+	}
+	if clone.ByteSlices["chunks"][0][0] != 0x01 {
+		t.Error("clone byte slices affected by original modification")
+	}
+}
+
+func TestClone_Nested(t *testing.T) {
+	child := Atom{
+		Strings: map[string]string{"name": "child"},
+		Ints:    map[string]int64{"value": 100},
+	}
+	a := &Atom{
+		Strings: map[string]string{"name": "parent"},
+		Nested:  map[string]Atom{"child": child},
+	}
+
+	clone := a.Clone()
+
+	// Verify nested copied
+	if clone.Nested["child"].Strings["name"] != "child" {
+		t.Error("nested atom not cloned")
+	}
+	if clone.Nested["child"].Ints["value"] != 100 {
+		t.Error("nested atom int not cloned")
+	}
+
+	// Verify deep copy
+	a.Nested["child"].Strings["name"] = "modified"
+	if clone.Nested["child"].Strings["name"] != "child" {
+		t.Error("clone nested affected by original modification")
+	}
+}
+
+func TestClone_NestedSlices(t *testing.T) {
+	items := []Atom{
+		{Strings: map[string]string{"name": "item1"}},
+		{Strings: map[string]string{"name": "item2"}},
+	}
+	a := &Atom{
+		NestedSlices: map[string][]Atom{"items": items},
+	}
+
+	clone := a.Clone()
+
+	// Verify nested slices copied
+	if len(clone.NestedSlices["items"]) != 2 {
+		t.Error("nested slices not cloned")
+	}
+	if clone.NestedSlices["items"][0].Strings["name"] != "item1" {
+		t.Error("nested slice item not cloned")
+	}
+
+	// Verify deep copy
+	a.NestedSlices["items"][0].Strings["name"] = "modified"
+	if clone.NestedSlices["items"][0].Strings["name"] != "item1" {
+		t.Error("clone nested slice affected by original modification")
+	}
+}

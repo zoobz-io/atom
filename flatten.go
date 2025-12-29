@@ -29,212 +29,137 @@ const (
 	typeBytesAlt = "[]uint8"
 )
 
-// Flatten converts an Atom to a struct-shaped map using the specified tag key.
-// Field names are resolved from struct tags (e.g., "json", "bson", "db").
-// Falls back to field name if tag is missing or "-".
-func (a *Atom) Flatten(tagKey string) map[string]any {
+// Flatten converts an Atom to a struct-shaped map using field names as keys.
+func (a *Atom) Flatten() map[string]any {
 	result := make(map[string]any)
-
-	// Build field name -> storage key mapping
-	keyMap := buildKeyMap(a.Spec, tagKey)
 
 	// Flatten scalar types
 	for name, val := range a.Strings {
-		if key := keyMap[name]; key != "" {
-			result[key] = val
-		}
+		result[name] = val
 	}
 	for name, val := range a.Ints {
-		if key := keyMap[name]; key != "" {
-			result[key] = val
-		}
+		result[name] = val
 	}
 	for name, val := range a.Uints {
-		if key := keyMap[name]; key != "" {
-			result[key] = val
-		}
+		result[name] = val
 	}
 	for name, val := range a.Floats {
-		if key := keyMap[name]; key != "" {
-			result[key] = val
-		}
+		result[name] = val
 	}
 	for name, val := range a.Bools {
-		if key := keyMap[name]; key != "" {
-			result[key] = val
-		}
+		result[name] = val
 	}
 	for name, val := range a.Times {
-		if key := keyMap[name]; key != "" {
-			result[key] = val
-		}
+		result[name] = val
 	}
 	for name, val := range a.Bytes {
-		if key := keyMap[name]; key != "" {
-			result[key] = val
-		}
+		result[name] = val
 	}
 
 	// Flatten pointer types (nil pointers are omitted)
 	for name, val := range a.StringPtrs {
-		if key := keyMap[name]; key != "" && val != nil {
-			result[key] = *val
+		if val != nil {
+			result[name] = *val
 		}
 	}
 	for name, val := range a.IntPtrs {
-		if key := keyMap[name]; key != "" && val != nil {
-			result[key] = *val
+		if val != nil {
+			result[name] = *val
 		}
 	}
 	for name, val := range a.UintPtrs {
-		if key := keyMap[name]; key != "" && val != nil {
-			result[key] = *val
+		if val != nil {
+			result[name] = *val
 		}
 	}
 	for name, val := range a.FloatPtrs {
-		if key := keyMap[name]; key != "" && val != nil {
-			result[key] = *val
+		if val != nil {
+			result[name] = *val
 		}
 	}
 	for name, val := range a.BoolPtrs {
-		if key := keyMap[name]; key != "" && val != nil {
-			result[key] = *val
+		if val != nil {
+			result[name] = *val
 		}
 	}
 	for name, val := range a.TimePtrs {
-		if key := keyMap[name]; key != "" && val != nil {
-			result[key] = *val
+		if val != nil {
+			result[name] = *val
 		}
 	}
 	for name, val := range a.BytePtrs {
-		if key := keyMap[name]; key != "" && val != nil {
-			result[key] = *val
+		if val != nil {
+			result[name] = *val
 		}
 	}
 
 	// Flatten slice types
 	for name, val := range a.StringSlices {
-		if key := keyMap[name]; key != "" {
-			result[key] = val
-		}
+		result[name] = val
 	}
 	for name, val := range a.IntSlices {
-		if key := keyMap[name]; key != "" {
-			result[key] = val
-		}
+		result[name] = val
 	}
 	for name, val := range a.UintSlices {
-		if key := keyMap[name]; key != "" {
-			result[key] = val
-		}
+		result[name] = val
 	}
 	for name, val := range a.FloatSlices {
-		if key := keyMap[name]; key != "" {
-			result[key] = val
-		}
+		result[name] = val
 	}
 	for name, val := range a.BoolSlices {
-		if key := keyMap[name]; key != "" {
-			result[key] = val
-		}
+		result[name] = val
 	}
 	for name, val := range a.TimeSlices {
-		if key := keyMap[name]; key != "" {
-			result[key] = val
-		}
+		result[name] = val
 	}
 	for name, val := range a.ByteSlices {
-		if key := keyMap[name]; key != "" {
-			result[key] = val
-		}
+		result[name] = val
 	}
 
 	// Flatten nested structs recursively
 	for name := range a.Nested {
-		if key := keyMap[name]; key != "" {
-			nested := a.Nested[name]
-			result[key] = nested.Flatten(tagKey)
-		}
+		nested := a.Nested[name]
+		result[name] = nested.Flatten()
 	}
 	for name, nestedSlice := range a.NestedSlices {
-		if key := keyMap[name]; key != "" {
-			flat := make([]map[string]any, len(nestedSlice))
-			for i := range nestedSlice {
-				flat[i] = nestedSlice[i].Flatten(tagKey)
-			}
-			result[key] = flat
+		flat := make([]map[string]any, len(nestedSlice))
+		for i := range nestedSlice {
+			flat[i] = nestedSlice[i].Flatten()
 		}
+		result[name] = flat
 	}
 
 	return result
 }
 
-// Unflatten reconstructs an Atom from a struct-shaped map using spec and tag key.
-func Unflatten(data map[string]any, spec Spec, tagKey string) *Atom {
+// Unflatten reconstructs an Atom from a struct-shaped map using field names as keys.
+func Unflatten(data map[string]any, spec Spec) *Atom {
 	atom := &Atom{
 		Spec:         spec,
 		Nested:       make(map[string]Atom),
 		NestedSlices: make(map[string][]Atom),
 	}
 
-	// Build storage key -> field metadata mapping
-	fieldMap := buildFieldMap(spec, tagKey)
+	// Build field name -> field metadata mapping
+	fieldMap := make(map[string]sentinel.FieldMetadata, len(spec.Fields))
+	for _, f := range spec.Fields {
+		fieldMap[f.Name] = f
+	}
 
-	for storageKey, val := range data {
-		field, ok := fieldMap[storageKey]
+	for name, val := range data {
+		field, ok := fieldMap[name]
 		if !ok {
 			continue
 		}
 
-		unflattenField(atom, field, val, tagKey)
+		unflattenField(atom, field, val)
 	}
 
 	return atom
 }
 
-// buildKeyMap creates a mapping from field name to storage key.
-func buildKeyMap(spec Spec, tagKey string) map[string]string {
-	keyMap := make(map[string]string, len(spec.Fields))
-	for _, f := range spec.Fields {
-		key := resolveStorageKey(f, tagKey)
-		if key != "" {
-			keyMap[f.Name] = key
-		}
-	}
-	return keyMap
-}
-
-// buildFieldMap creates a mapping from storage key to field metadata.
-func buildFieldMap(spec Spec, tagKey string) map[string]sentinel.FieldMetadata {
-	fieldMap := make(map[string]sentinel.FieldMetadata, len(spec.Fields))
-	for _, f := range spec.Fields {
-		key := resolveStorageKey(f, tagKey)
-		if key != "" {
-			fieldMap[key] = f
-		}
-	}
-	return fieldMap
-}
-
-// resolveStorageKey extracts the storage key from a field's tags.
-// Returns empty string if field should be skipped.
-func resolveStorageKey(f sentinel.FieldMetadata, tagKey string) string {
-	if tag, ok := f.Tags[tagKey]; ok && tag != "" {
-		// Parse tag value (e.g., "name,omitempty" -> "name")
-		key := strings.Split(tag, ",")[0]
-		if key == "-" {
-			return ""
-		}
-		if key != "" {
-			return key
-		}
-	}
-	// Fall back to field name
-	return f.Name
-}
-
 // unflattenField places a value into the appropriate typed map based on field metadata.
-func unflattenField(atom *Atom, field sentinel.FieldMetadata, val any, tagKey string) {
+func unflattenField(atom *Atom, field sentinel.FieldMetadata, val any) {
 	if val == nil {
 		return
 	}
@@ -250,16 +175,16 @@ func unflattenField(atom *Atom, field sentinel.FieldMetadata, val any, tagKey st
 	// Handle slice types
 	if strings.HasPrefix(typeName, "[]") {
 		elemType := strings.TrimPrefix(typeName, "[]")
-		unflattenSlice(atom, field.Name, elemType, val, tagKey)
+		unflattenSlice(atom, field.Name, elemType, val)
 		return
 	}
 
 	// Handle scalar and struct types
-	unflattenScalar(atom, field, val, tagKey)
+	unflattenScalar(atom, field, val)
 }
 
 // unflattenScalar handles scalar and struct types.
-func unflattenScalar(atom *Atom, field sentinel.FieldMetadata, val any, tagKey string) {
+func unflattenScalar(atom *Atom, field sentinel.FieldMetadata, val any) {
 	name := field.Name
 	typeName := field.Type
 
@@ -309,7 +234,7 @@ func unflattenScalar(atom *Atom, field sentinel.FieldMetadata, val any, tagKey s
 			if nested, ok := val.(map[string]any); ok {
 				// Find nested spec from relationships or use empty spec
 				nestedSpec := findNestedSpec(atom.Spec, field)
-				atom.Nested[name] = *Unflatten(nested, nestedSpec, tagKey)
+				atom.Nested[name] = *Unflatten(nested, nestedSpec)
 			}
 		}
 	}
@@ -366,7 +291,7 @@ func unflattenPointer(atom *Atom, name, elemType string, val any) {
 }
 
 // unflattenSlice handles slice types.
-func unflattenSlice(atom *Atom, name, elemType string, val any, tagKey string) {
+func unflattenSlice(atom *Atom, name, elemType string, val any) {
 	switch elemType {
 	case typeString:
 		if atom.StringSlices == nil {
@@ -410,7 +335,7 @@ func unflattenSlice(atom *Atom, name, elemType string, val any, tagKey string) {
 			for _, item := range arr {
 				if m, ok := item.(map[string]any); ok {
 					// TODO: resolve nested spec properly
-					nested = append(nested, *Unflatten(m, Spec{}, tagKey))
+					nested = append(nested, *Unflatten(m, Spec{}))
 				}
 			}
 			atom.NestedSlices[name] = nested
