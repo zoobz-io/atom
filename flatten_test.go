@@ -460,3 +460,95 @@ func TestUnflatten_UnknownField(t *testing.T) {
 	}
 	// Should not panic or error on unknown field
 }
+
+// Test types for nested unflatten.
+type nestedAddress struct {
+	Street string
+	City   string
+}
+
+type nestedPerson struct {
+	Name    string
+	Address nestedAddress
+}
+
+func TestUnflatten_Nested(t *testing.T) {
+	// Register the types so sentinel.Lookup can find them
+	_, err := Use[nestedAddress]()
+	if err != nil {
+		t.Fatalf("failed to register nestedAddress: %v", err)
+	}
+	personAtomizer, err := Use[nestedPerson]()
+	if err != nil {
+		t.Fatalf("failed to register nestedPerson: %v", err)
+	}
+
+	// Create an atom with nested data
+	original := &Atom{
+		Spec:    personAtomizer.Spec(),
+		Strings: map[string]string{"Name": "John"},
+		Nested: map[string]Atom{
+			"Address": {
+				Strings: map[string]string{"Street": "123 Main St", "City": "NYC"},
+			},
+		},
+	}
+
+	// Flatten then unflatten
+	flat := original.Flatten()
+	restored := Unflatten(flat, personAtomizer.Spec())
+
+	// Verify root level
+	if restored.Strings["Name"] != "John" {
+		t.Errorf("expected Name=John, got %v", restored.Strings["Name"])
+	}
+
+	// Verify nested data was preserved
+	nestedAtom, ok := restored.Nested["Address"]
+	if !ok {
+		t.Fatal("expected Address nested atom to exist")
+	}
+	if nestedAtom.Strings["Street"] != "123 Main St" {
+		t.Errorf("expected Street=123 Main St, got %v", nestedAtom.Strings["Street"])
+	}
+	if nestedAtom.Strings["City"] != "NYC" {
+		t.Errorf("expected City=NYC, got %v", nestedAtom.Strings["City"])
+	}
+}
+
+func TestUnflatten_NestedRoundtrip(t *testing.T) {
+	// Register and use atomizer
+	personAtomizer, err := Use[nestedPerson]()
+	if err != nil {
+		t.Fatalf("failed to register nestedPerson: %v", err)
+	}
+
+	// Create original struct
+	person := &nestedPerson{
+		Name: "Alice",
+		Address: nestedAddress{
+			Street: "456 Oak Ave",
+			City:   "Boston",
+		},
+	}
+
+	// Atomize -> Flatten -> Unflatten -> Deatomize
+	atom := personAtomizer.Atomize(person)
+	flat := atom.Flatten()
+	restored := Unflatten(flat, personAtomizer.Spec())
+	result, err := personAtomizer.Deatomize(restored)
+	if err != nil {
+		t.Fatalf("deatomize failed: %v", err)
+	}
+
+	// Verify full roundtrip
+	if result.Name != person.Name {
+		t.Errorf("Name mismatch: %v != %v", result.Name, person.Name)
+	}
+	if result.Address.Street != person.Address.Street {
+		t.Errorf("Street mismatch: %v != %v", result.Address.Street, person.Address.Street)
+	}
+	if result.Address.City != person.Address.City {
+		t.Errorf("City mismatch: %v != %v", result.Address.City, person.Address.City)
+	}
+}

@@ -57,6 +57,16 @@ func Use[T any]() (*Atomizer[T], error) {
 		}
 	}
 
+	// Build and register scanner
+	scanner, err := buildScanner(ra.plan, spec)
+	if err != nil {
+		// Scanner build errors are not fatal - type can still be used without scanning
+		// Store error but continue
+		registrationErrors[typ] = err
+	} else {
+		registerScanner(typ, scanner)
+	}
+
 	return &Atomizer[T]{inner: ra}, nil
 }
 

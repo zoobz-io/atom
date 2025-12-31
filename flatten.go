@@ -344,9 +344,36 @@ func unflattenSlice(atom *Atom, name, elemType string, val any) {
 }
 
 // findNestedSpec attempts to find the spec for a nested struct field.
-func findNestedSpec(_ Spec, _ sentinel.FieldMetadata) Spec {
-	// For now, return empty spec. Nested specs would need to be
-	// passed in or resolved from a registry.
+func findNestedSpec(parentSpec Spec, field sentinel.FieldMetadata) Spec {
+	// Strategy 1: Use field's ReflectType to get FQDN
+	if field.ReflectType != nil {
+		typeName := field.ReflectType.String()
+		if spec, ok := sentinel.Lookup(typeName); ok {
+			return spec
+		}
+		// Try with full package path
+		if field.ReflectType.PkgPath() != "" {
+			fqdn := field.ReflectType.PkgPath() + "." + field.ReflectType.Name()
+			if spec, ok := sentinel.Lookup(fqdn); ok {
+				return spec
+			}
+		}
+	}
+
+	// Strategy 2: Try the field's Type string directly
+	if spec, ok := sentinel.Lookup(field.Type); ok {
+		return spec
+	}
+
+	// Strategy 3: Try with parent's package prefix
+	if parentSpec.PackageName != "" {
+		fqdn := parentSpec.PackageName + "." + field.Type
+		if spec, ok := sentinel.Lookup(fqdn); ok {
+			return spec
+		}
+	}
+
+	// Return empty spec if not found - unflatten will skip unknown fields
 	return Spec{}
 }
 

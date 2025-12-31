@@ -150,13 +150,15 @@ func (a *Atom) Clone() *Atom {
 		}
 	}
 
-	// Clone pointer maps
+	// Clone pointer maps (preserving nil entries)
 	if a.StringPtrs != nil {
 		clone.StringPtrs = make(map[string]*string, len(a.StringPtrs))
 		for k, v := range a.StringPtrs {
 			if v != nil {
 				cp := *v
 				clone.StringPtrs[k] = &cp
+			} else {
+				clone.StringPtrs[k] = nil
 			}
 		}
 	}
@@ -166,6 +168,8 @@ func (a *Atom) Clone() *Atom {
 			if v != nil {
 				cp := *v
 				clone.IntPtrs[k] = &cp
+			} else {
+				clone.IntPtrs[k] = nil
 			}
 		}
 	}
@@ -175,6 +179,8 @@ func (a *Atom) Clone() *Atom {
 			if v != nil {
 				cp := *v
 				clone.UintPtrs[k] = &cp
+			} else {
+				clone.UintPtrs[k] = nil
 			}
 		}
 	}
@@ -184,6 +190,8 @@ func (a *Atom) Clone() *Atom {
 			if v != nil {
 				cp := *v
 				clone.FloatPtrs[k] = &cp
+			} else {
+				clone.FloatPtrs[k] = nil
 			}
 		}
 	}
@@ -193,6 +201,8 @@ func (a *Atom) Clone() *Atom {
 			if v != nil {
 				cp := *v
 				clone.BoolPtrs[k] = &cp
+			} else {
+				clone.BoolPtrs[k] = nil
 			}
 		}
 	}
@@ -202,6 +212,8 @@ func (a *Atom) Clone() *Atom {
 			if v != nil {
 				cp := *v
 				clone.TimePtrs[k] = &cp
+			} else {
+				clone.TimePtrs[k] = nil
 			}
 		}
 	}
@@ -212,6 +224,8 @@ func (a *Atom) Clone() *Atom {
 				cp := make([]byte, len(*v))
 				copy(cp, *v)
 				clone.BytePtrs[k] = &cp
+			} else {
+				clone.BytePtrs[k] = nil
 			}
 		}
 	}

@@ -412,6 +412,54 @@ func TestClone_Pointers(t *testing.T) {
 	}
 }
 
+func TestClone_PointersNil(t *testing.T) {
+	strVal := "hello"
+
+	a := &Atom{
+		StringPtrs: map[string]*string{"present": &strVal, "nil_entry": nil},
+		IntPtrs:    map[string]*int64{"nil_entry": nil},
+		UintPtrs:   map[string]*uint64{"nil_entry": nil},
+		FloatPtrs:  map[string]*float64{"nil_entry": nil},
+		BoolPtrs:   map[string]*bool{"nil_entry": nil},
+		TimePtrs:   map[string]*time.Time{"nil_entry": nil},
+		BytePtrs:   map[string]*[]byte{"nil_entry": nil},
+	}
+
+	clone := a.Clone()
+
+	// Verify nil entries are preserved (key exists with nil value)
+	if _, exists := clone.StringPtrs["nil_entry"]; !exists {
+		t.Error("nil string pointer entry not preserved in clone")
+	}
+	if clone.StringPtrs["nil_entry"] != nil {
+		t.Error("nil string pointer should remain nil")
+	}
+
+	if _, exists := clone.IntPtrs["nil_entry"]; !exists {
+		t.Error("nil int pointer entry not preserved in clone")
+	}
+	if _, exists := clone.UintPtrs["nil_entry"]; !exists {
+		t.Error("nil uint pointer entry not preserved in clone")
+	}
+	if _, exists := clone.FloatPtrs["nil_entry"]; !exists {
+		t.Error("nil float pointer entry not preserved in clone")
+	}
+	if _, exists := clone.BoolPtrs["nil_entry"]; !exists {
+		t.Error("nil bool pointer entry not preserved in clone")
+	}
+	if _, exists := clone.TimePtrs["nil_entry"]; !exists {
+		t.Error("nil time pointer entry not preserved in clone")
+	}
+	if _, exists := clone.BytePtrs["nil_entry"]; !exists {
+		t.Error("nil byte pointer entry not preserved in clone")
+	}
+
+	// Verify non-nil entry still works
+	if clone.StringPtrs["present"] == nil || *clone.StringPtrs["present"] != "hello" {
+		t.Error("non-nil string pointer not cloned correctly")
+	}
+}
+
 func TestClone_Slices(t *testing.T) {
 	a := &Atom{
 		StringSlices: map[string][]string{"tags": {"a", "b", "c"}},
