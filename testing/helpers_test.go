@@ -231,3 +231,215 @@ func TestRandomGenerators(t *testing.T) {
 		t.Error("RandomTime should be in the past")
 	}
 }
+
+func TestAtomBuilderPtrs(t *testing.T) {
+	str := "hello"
+	i := int64(42)
+
+	a := NewAtomBuilder().
+		StringPtr("Name", &str).
+		IntPtr("Age", &i).
+		Build()
+
+	if a.StringPtrs["Name"] == nil || *a.StringPtrs["Name"] != "hello" {
+		t.Errorf("StringPtr: expected 'hello', got %v", a.StringPtrs["Name"])
+	}
+	if a.IntPtrs["Age"] == nil || *a.IntPtrs["Age"] != 42 {
+		t.Errorf("IntPtr: expected 42, got %v", a.IntPtrs["Age"])
+	}
+
+	// Test with nil pointers
+	aNil := NewAtomBuilder().
+		StringPtr("Name", nil).
+		IntPtr("Age", nil).
+		Build()
+
+	if aNil.StringPtrs["Name"] != nil {
+		t.Error("expected nil StringPtr")
+	}
+	if aNil.IntPtrs["Age"] != nil {
+		t.Error("expected nil IntPtr")
+	}
+}
+
+func TestAtomBuilderNestedSlice(t *testing.T) {
+	items := []atom.Atom{
+		*NewAtomBuilder().String("Name", "Item1").Build(),
+		*NewAtomBuilder().String("Name", "Item2").Build(),
+	}
+
+	a := NewAtomBuilder().
+		NestedSlice("Items", items).
+		Build()
+
+	if len(a.NestedSlices["Items"]) != 2 {
+		t.Errorf("expected 2 items, got %d", len(a.NestedSlices["Items"]))
+	}
+	if a.NestedSlices["Items"][0].Strings["Name"] != "Item1" {
+		t.Error("first item name mismatch")
+	}
+}
+
+func TestAtomBuilderWithSpec(t *testing.T) {
+	spec := atom.Spec{
+		TypeName:    "TestType",
+		PackageName: "testpkg",
+	}
+
+	a := NewAtomBuilder().
+		WithSpec(spec).
+		String("Name", "Test").
+		Build()
+
+	if a.Spec.TypeName != "TestType" {
+		t.Errorf("expected TypeName='TestType', got %q", a.Spec.TypeName)
+	}
+	if a.Spec.PackageName != "testpkg" {
+		t.Errorf("expected PackageName='testpkg', got %q", a.Spec.PackageName)
+	}
+}
+
+func TestGetTimeAndBytes(t *testing.T) {
+	now := time.Now().Truncate(time.Second)
+	data := []byte{0x01, 0x02, 0x03}
+
+	a := NewAtomBuilder().
+		Time("Created", now).
+		Bytes("Data", data).
+		Build()
+
+	if tm, ok := GetTime(a, "Created"); !ok || !tm.Equal(now) {
+		t.Errorf("GetTime: got %v, %v", tm, ok)
+	}
+	if b, ok := GetBytes(a, "Data"); !ok || len(b) != 3 {
+		t.Errorf("GetBytes: got %v, %v", b, ok)
+	}
+
+	// Missing fields
+	if _, ok := GetTime(a, "Missing"); ok {
+		t.Error("expected Missing time to not exist")
+	}
+	if _, ok := GetBytes(a, "Missing"); ok {
+		t.Error("expected Missing bytes to not exist")
+	}
+}
+
+func TestAssertHasNested(t *testing.T) {
+	inner := NewAtomBuilder().String("City", "NYC").Build()
+	a := NewAtomBuilder().Nested("Address", inner).Build()
+
+	// Should pass
+	AssertHasNested(t, a, "Address")
+}
+
+func TestAssertMissingFieldAllTypes(t *testing.T) {
+	a := NewAtomBuilder().Build() // Empty atom
+
+	// Should all pass - fields are missing
+	AssertMissingField(t, a, atom.TableStrings, "Name")
+	AssertMissingField(t, a, atom.TableInts, "Age")
+	AssertMissingField(t, a, atom.TableFloats, "Score")
+	AssertMissingField(t, a, atom.TableBools, "Active")
+}
+
+func TestEqualFieldsAllTypes(t *testing.T) {
+	now := time.Now().Truncate(time.Second)
+	data := []byte{0x01}
+
+	a := NewAtomBuilder().
+		String("Name", "Alice").
+		Int("Age", 30).
+		Float("Score", 95.5).
+		Bool("Active", true).
+		Time("Created", now).
+		Bytes("Data", data).
+		Build()
+
+	b := NewAtomBuilder().
+		String("Name", "Alice").
+		Int("Age", 30).
+		Float("Score", 95.5).
+		Bool("Active", true).
+		Time("Created", now).
+		Bytes("Data", data).
+		Build()
+
+	c := NewAtomBuilder().
+		String("Name", "Bob").
+		Int("Age", 25).
+		Float("Score", 80.0).
+		Bool("Active", false).
+		Time("Created", now.Add(time.Hour)).
+		Bytes("Data", []byte{0x02}).
+		Build()
+
+	// Same fields should be equal
+	if !EqualFields(a, b, "Name", "Age", "Score", "Active", "Created", "Data") {
+		t.Error("expected a and b to have equal fields")
+	}
+
+	// Different fields should not be equal
+	if EqualFields(a, c, "Name") {
+		t.Error("expected Name fields to differ")
+	}
+	if EqualFields(a, c, "Age") {
+		t.Error("expected Age fields to differ")
+	}
+	if EqualFields(a, c, "Score") {
+		t.Error("expected Score fields to differ")
+	}
+	if EqualFields(a, c, "Active") {
+		t.Error("expected Active fields to differ")
+	}
+	if EqualFields(a, c, "Created") {
+		t.Error("expected Created fields to differ")
+	}
+	if EqualFields(a, c, "Data") {
+		t.Error("expected Data fields to differ")
+	}
+}
+
+func TestDiffNoDifferences(t *testing.T) {
+	a := NewAtomBuilder().String("Name", "Alice").Int("Age", 30).Build()
+	b := NewAtomBuilder().String("Name", "Alice").Int("Age", 30).Build()
+
+	diff := Diff(a, b)
+	if diff != "<no differences>" {
+		t.Errorf("expected no differences, got: %s", diff)
+	}
+}
+
+func TestDiffMissingFields(t *testing.T) {
+	a := NewAtomBuilder().String("Name", "Alice").String("Email", "alice@test.com").Build()
+	b := NewAtomBuilder().String("Name", "Alice").Build()
+
+	diff := Diff(a, b)
+	if diff == "<no differences>" {
+		t.Error("expected differences for missing Email")
+	}
+
+	// Test missing in a
+	diff2 := Diff(b, a)
+	if diff2 == "<no differences>" {
+		t.Error("expected differences for extra Email")
+	}
+}
+
+func TestDiffIntValues(t *testing.T) {
+	a := NewAtomBuilder().Int("Age", 30).Build()
+	b := NewAtomBuilder().Int("Age", 25).Build()
+
+	diff := Diff(a, b)
+	if diff == "<no differences>" {
+		t.Error("expected differences for Age")
+	}
+
+	// Test missing int
+	c := NewAtomBuilder().Int("Age", 30).Int("Count", 10).Build()
+	d := NewAtomBuilder().Int("Age", 30).Build()
+
+	diff2 := Diff(c, d)
+	if diff2 == "<no differences>" {
+		t.Error("expected differences for missing Count")
+	}
+}

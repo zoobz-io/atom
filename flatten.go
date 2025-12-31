@@ -172,6 +172,12 @@ func unflattenField(atom *Atom, field sentinel.FieldMetadata, val any) {
 		return
 	}
 
+	// Handle []byte and []uint8 as scalar bytes, not as slices
+	if typeName == typeBytes || typeName == typeBytesAlt {
+		unflattenScalar(atom, field, val)
+		return
+	}
+
 	// Handle slice types
 	if strings.HasPrefix(typeName, "[]") {
 		elemType := strings.TrimPrefix(typeName, "[]")
