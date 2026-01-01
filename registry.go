@@ -67,6 +67,15 @@ func Use[T any]() (*Atomizer[T], error) {
 		registerScanner(typ, scanner)
 	}
 
+	// Build and register codec
+	codec, err := buildCodec(ra.plan, spec)
+	if err != nil {
+		// Codec build errors are not fatal - type can still be used without encoding
+		registrationErrors[typ] = err
+	} else {
+		registerCodec(typ, codec)
+	}
+
 	return &Atomizer[T]{inner: ra}, nil
 }
 

@@ -7,6 +7,10 @@ import (
 	"github.com/zoobzio/sentinel"
 )
 
+func init() {
+	sentinel.Tag("time")
+}
+
 // Spec is metadata describing a struct type.
 // Aliased from sentinel.Metadata to decouple downstream users from sentinel.
 type Spec = sentinel.Metadata

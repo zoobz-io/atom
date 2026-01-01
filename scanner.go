@@ -398,7 +398,8 @@ func assignValue(atom *Atom, plan *scanFieldPlan, dest any) {
 				atom.StringPtrs = make(map[string]*string)
 			}
 			if v.Valid {
-				atom.StringPtrs[plan.fieldName] = &v.String
+				val := v.String
+				atom.StringPtrs[plan.fieldName] = &val
 			} else {
 				atom.StringPtrs[plan.fieldName] = nil
 			}
@@ -409,7 +410,8 @@ func assignValue(atom *Atom, plan *scanFieldPlan, dest any) {
 				atom.IntPtrs = make(map[string]*int64)
 			}
 			if v.Valid {
-				atom.IntPtrs[plan.fieldName] = &v.Int64
+				val := v.Int64
+				atom.IntPtrs[plan.fieldName] = &val
 			} else {
 				atom.IntPtrs[plan.fieldName] = nil
 			}
@@ -432,7 +434,8 @@ func assignValue(atom *Atom, plan *scanFieldPlan, dest any) {
 				atom.FloatPtrs = make(map[string]*float64)
 			}
 			if v.Valid {
-				atom.FloatPtrs[plan.fieldName] = &v.Float64
+				val := v.Float64
+				atom.FloatPtrs[plan.fieldName] = &val
 			} else {
 				atom.FloatPtrs[plan.fieldName] = nil
 			}
@@ -443,7 +446,8 @@ func assignValue(atom *Atom, plan *scanFieldPlan, dest any) {
 				atom.BoolPtrs = make(map[string]*bool)
 			}
 			if v.Valid {
-				atom.BoolPtrs[plan.fieldName] = &v.Bool
+				val := v.Bool
+				atom.BoolPtrs[plan.fieldName] = &val
 			} else {
 				atom.BoolPtrs[plan.fieldName] = nil
 			}
@@ -454,7 +458,8 @@ func assignValue(atom *Atom, plan *scanFieldPlan, dest any) {
 				atom.TimePtrs = make(map[string]*time.Time)
 			}
 			if v.Valid {
-				atom.TimePtrs[plan.fieldName] = &v.Time
+				val := v.Time
+				atom.TimePtrs[plan.fieldName] = &val
 			} else {
 				atom.TimePtrs[plan.fieldName] = nil
 			}
