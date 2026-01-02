@@ -131,3 +131,46 @@ func ensureRegistered(typ reflect.Type) *reflectAtomizer {
 
 	return ra
 }
+
+// TableForField returns the storage table for a field by Spec lookup.
+// Requires the type to have been registered via Use[T]().
+func TableForField(spec Spec, field string) (Table, bool) {
+	registryMu.RLock()
+	ra, ok := registry[spec.ReflectType]
+	registryMu.RUnlock()
+
+	if !ok {
+		return "", false
+	}
+
+	for i := range ra.plan {
+		if ra.plan[i].name == field {
+			return ra.plan[i].table, true
+		}
+	}
+	return "", false
+}
+
+// FieldsFor returns all field-to-table mappings for a registered type.
+// Requires the type to have been registered via Use[T]().
+func FieldsFor(spec Spec) ([]Field, bool) {
+	registryMu.RLock()
+	ra, ok := registry[spec.ReflectType]
+	registryMu.RUnlock()
+
+	if !ok {
+		return nil, false
+	}
+
+	fields := make([]Field, 0, len(ra.plan))
+	for i := range ra.plan {
+		fp := &ra.plan[i]
+		if fp.table != "" {
+			fields = append(fields, Field{
+				Name:  fp.name,
+				Table: fp.table,
+			})
+		}
+	}
+	return fields, true
+}

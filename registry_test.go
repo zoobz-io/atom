@@ -292,3 +292,139 @@ func TestRegistryThreadSafety(_ *testing.T) {
 	}
 	wg.Wait()
 }
+
+func TestTableForField(t *testing.T) {
+	type Person struct {
+		Name  string
+		Age   int
+		Score float64
+	}
+
+	az, err := Use[Person]()
+	if err != nil {
+		t.Fatalf("Use error: %v", err)
+	}
+
+	spec := az.Spec()
+
+	tests := []struct {
+		field string
+		want  Table
+		ok    bool
+	}{
+		{"Name", TableStrings, true},
+		{"Age", TableInts, true},
+		{"Score", TableFloats, true},
+		{"Unknown", "", false},
+	}
+
+	for _, tc := range tests {
+		got, ok := TableForField(spec, tc.field)
+		if ok != tc.ok {
+			t.Errorf("TableForField(%q): got ok=%v, want ok=%v", tc.field, ok, tc.ok)
+		}
+		if got != tc.want {
+			t.Errorf("TableForField(%q): got %q, want %q", tc.field, got, tc.want)
+		}
+	}
+}
+
+func TestTableForFieldUnregistered(t *testing.T) {
+	type Unregistered struct {
+		X int
+	}
+
+	// Create a spec without registering
+	spec := Spec{ReflectType: reflect.TypeFor[Unregistered]()}
+
+	_, ok := TableForField(spec, "X")
+	if ok {
+		t.Error("expected false for unregistered type")
+	}
+}
+
+func TestFieldsFor(t *testing.T) {
+	type Record struct {
+		ID    int
+		Name  string
+		Email string
+		Age   int
+	}
+
+	az, err := Use[Record]()
+	if err != nil {
+		t.Fatalf("Use error: %v", err)
+	}
+
+	fields, ok := FieldsFor(az.Spec())
+	if !ok {
+		t.Fatal("expected ok=true for registered type")
+	}
+
+	if len(fields) != 4 {
+		t.Fatalf("got %d fields, want 4", len(fields))
+	}
+
+	// Build map for easier lookup
+	fieldMap := make(map[string]Table)
+	for _, f := range fields {
+		fieldMap[f.Name] = f.Table
+	}
+
+	if fieldMap["ID"] != TableInts {
+		t.Errorf("ID: got %q, want %q", fieldMap["ID"], TableInts)
+	}
+	if fieldMap["Name"] != TableStrings {
+		t.Errorf("Name: got %q, want %q", fieldMap["Name"], TableStrings)
+	}
+	if fieldMap["Email"] != TableStrings {
+		t.Errorf("Email: got %q, want %q", fieldMap["Email"], TableStrings)
+	}
+	if fieldMap["Age"] != TableInts {
+		t.Errorf("Age: got %q, want %q", fieldMap["Age"], TableInts)
+	}
+}
+
+func TestFieldsForUnregistered(t *testing.T) {
+	type NotRegistered struct {
+		Y string
+	}
+
+	spec := Spec{ReflectType: reflect.TypeFor[NotRegistered]()}
+
+	fields, ok := FieldsFor(spec)
+	if ok {
+		t.Error("expected ok=false for unregistered type")
+	}
+	if fields != nil {
+		t.Error("expected nil fields for unregistered type")
+	}
+}
+
+func TestFieldsForNested(t *testing.T) {
+	type Address struct {
+		City string
+	}
+	type Company struct {
+		Name    string
+		Address Address
+	}
+
+	az, err := Use[Company]()
+	if err != nil {
+		t.Fatalf("Use error: %v", err)
+	}
+
+	fields, ok := FieldsFor(az.Spec())
+	if !ok {
+		t.Fatal("expected ok=true")
+	}
+
+	// Should have Name (string) but not Address (nested has no table)
+	if len(fields) != 1 {
+		t.Fatalf("got %d fields, want 1", len(fields))
+	}
+	if fields[0].Name != "Name" || fields[0].Table != TableStrings {
+		t.Errorf("got field %+v, want Name -> strings", fields[0])
+	}
+}
