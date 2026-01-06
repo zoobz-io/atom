@@ -238,9 +238,9 @@ func TestAtomizePointerNil(t *testing.T) {
 		atomizePointer(&fp, fv, atom)
 	}
 
-	// Verify nil was stored
-	if _, ok := atom.StringPtrs["F"]; !ok {
-		t.Error("StringPtrs should have nil entry")
+	// Verify nil pointer does not create entry (consistent with slices, maps, nested)
+	if _, ok := atom.StringPtrs["F"]; ok {
+		t.Error("nil pointer should not create entry")
 	}
 }
 
@@ -722,8 +722,8 @@ func TestAtomizePointerNilAllTypes(t *testing.T) {
 		table Table
 		check func() bool
 	}{
-		{"uint ptr", TableUintPtrs, func() bool { _, ok := atom.UintPtrs["F"]; return ok }},
-		{"byte ptr", TableBytePtrs, func() bool { _, ok := atom.BytePtrs["F"]; return ok }},
+		{"uint ptr", TableUintPtrs, func() bool { _, ok := atom.UintPtrs["F"]; return !ok }},
+		{"byte ptr", TableBytePtrs, func() bool { _, ok := atom.BytePtrs["F"]; return !ok }},
 	}
 
 	for _, tt := range tests {
@@ -733,7 +733,7 @@ func TestAtomizePointerNilAllTypes(t *testing.T) {
 			atomizePointer(&fp, fv, atom)
 
 			if !tt.check() {
-				t.Errorf("nil pointer should create entry for %s", tt.name)
+				t.Errorf("nil pointer should not create entry for %s", tt.name)
 			}
 		})
 	}

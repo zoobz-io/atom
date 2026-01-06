@@ -85,13 +85,13 @@ func TestUseConcurrent(t *testing.T) {
 }
 
 func TestUseUnsupportedType(t *testing.T) {
-	type WithMap struct {
-		M map[string]int
+	type WithBadMap struct {
+		M map[int]string // non-string key is unsupported
 	}
 
-	_, err := Use[WithMap]()
+	_, err := Use[WithBadMap]()
 	if err == nil {
-		t.Error("expected error for unsupported map field")
+		t.Error("expected error for unsupported map key type")
 	}
 }
 
@@ -139,7 +139,7 @@ func TestUseNestedType(t *testing.T) {
 
 func TestUseNestedWithBadField(t *testing.T) {
 	type BadInner struct {
-		M map[string]int
+		M map[int]string // non-string key is unsupported
 	}
 	type OuterBad struct {
 		Nested BadInner
@@ -147,7 +147,29 @@ func TestUseNestedWithBadField(t *testing.T) {
 
 	_, err := Use[OuterBad]()
 	if err == nil {
-		t.Error("expected error for nested type with map field")
+		t.Error("expected error for nested type with unsupported map key")
+	}
+}
+
+func TestUseDeepNestedWithBadField(t *testing.T) {
+	// Level 3: has unsupported field
+	type DeepBad struct {
+		C chan int // unsupported
+	}
+
+	// Level 2: contains DeepBad
+	type Middle struct {
+		Deep DeepBad
+	}
+
+	// Level 1: contains Middle
+	type Outer struct {
+		Mid Middle
+	}
+
+	_, err := Use[Outer]()
+	if err == nil {
+		t.Error("expected error for deeply nested unsupported type")
 	}
 }
 

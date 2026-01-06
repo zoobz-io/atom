@@ -31,6 +31,14 @@ func TestTableConstants(t *testing.T) {
 		{TableBoolSlices, "bool_slices"},
 		{TableTimeSlices, "time_slices"},
 		{TableByteSlices, "byte_slices"},
+		{TableStringMaps, "string_maps"},
+		{TableIntMaps, "int_maps"},
+		{TableUintMaps, "uint_maps"},
+		{TableFloatMaps, "float_maps"},
+		{TableBoolMaps, "bool_maps"},
+		{TableTimeMaps, "time_maps"},
+		{TableByteMaps, "byte_maps"},
+		{TableNestedMaps, "nested_maps"},
 	}
 
 	for _, tt := range tests {
@@ -43,14 +51,15 @@ func TestTableConstants(t *testing.T) {
 func TestAllTables(t *testing.T) {
 	tables := AllTables()
 
-	if len(tables) != 21 {
-		t.Errorf("expected 21 tables, got %d", len(tables))
+	if len(tables) != 29 {
+		t.Errorf("expected 29 tables, got %d", len(tables))
 	}
 
 	expected := []Table{
 		TableStrings, TableInts, TableUints, TableFloats, TableBools, TableTimes, TableBytes,
 		TableBytePtrs, TableStringPtrs, TableIntPtrs, TableUintPtrs, TableFloatPtrs, TableBoolPtrs, TableTimePtrs,
 		TableStringSlices, TableIntSlices, TableUintSlices, TableFloatSlices, TableBoolSlices, TableTimeSlices, TableByteSlices,
+		TableStringMaps, TableIntMaps, TableUintMaps, TableFloatMaps, TableBoolMaps, TableTimeMaps, TableByteMaps, TableNestedMaps,
 	}
 	for i, table := range tables {
 		if table != expected[i] {

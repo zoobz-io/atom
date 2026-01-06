@@ -13,6 +13,8 @@ const (
 	kindScalar fieldKind = iota
 	kindPointer
 	kindSlice
+	kindMap
+	kindNestedMap
 	kindNested
 	kindNestedSlice
 	kindNestedPtr
@@ -95,7 +97,7 @@ func planField(sf reflect.StructField, index []int) (fieldPlan, error) {
 			return fp, nil
 		}
 
-		return fp, fmt.Errorf("field %q: unsupported pointer element type %s", sf.Name, elemType)
+		return fp, fmt.Errorf("field %q: %w: pointer element type %s", sf.Name, ErrUnsupportedType, elemType)
 	}
 
 	// Handle fixed-size byte arrays ([N]byte) - stored as []byte
@@ -153,12 +155,43 @@ func planField(sf reflect.StructField, index []int) (fieldPlan, error) {
 			return fp, nil
 		}
 
-		return fp, fmt.Errorf("field %q: unsupported slice element type %s", sf.Name, elemType)
+		return fp, fmt.Errorf("field %q: %w: slice element type %s", sf.Name, ErrUnsupportedType, elemType)
 	}
 
-	// Handle map types - explicitly unsupported
+	// Handle map types - string keys only
 	if ft.Kind() == reflect.Map {
-		return fp, fmt.Errorf("field %q: map types are not supported", sf.Name)
+		if ft.Key().Kind() != reflect.String {
+			return fp, fmt.Errorf("field %q: %w: non-string map key %s", sf.Name, ErrUnsupportedType, ft.Key())
+		}
+		elemType := ft.Elem()
+
+		// []byte values
+		if elemType.Kind() == reflect.Slice && elemType.Elem().Kind() == reflect.Uint8 {
+			fp.table = TableByteMaps
+			fp.kind = kindMap
+			fp.elemType = elemType
+			return fp, nil
+		}
+
+		// Scalar values
+		if table, conv, ok := scalarToTable(elemType); ok {
+			fp.table = mapTable(table)
+			fp.kind = kindMap
+			fp.converter = conv
+			fp.elemType = elemType
+			return fp, nil
+		}
+
+		// Struct values → nested map
+		if elemType.Kind() == reflect.Struct && elemType != timeType {
+			fp.table = TableNestedMaps
+			fp.kind = kindNestedMap
+			fp.nested = ensureRegistered(elemType)
+			fp.elemType = elemType
+			return fp, nil
+		}
+
+		return fp, fmt.Errorf("field %q: %w: map value type %s", sf.Name, ErrUnsupportedType, elemType)
 	}
 
 	// Handle struct (nested)
@@ -176,7 +209,7 @@ func planField(sf reflect.StructField, index []int) (fieldPlan, error) {
 		return fp, nil
 	}
 
-	return fp, fmt.Errorf("field %q: unsupported type %s", sf.Name, ft)
+	return fp, fmt.Errorf("field %q: %w: %s", sf.Name, ErrUnsupportedType, ft)
 }
 
 // scalarToTable maps a reflect.Type to its Table.
@@ -238,6 +271,28 @@ func sliceTable(base Table) Table {
 		return TableBoolSlices
 	case TableTimes:
 		return TableTimeSlices
+	default:
+		return ""
+	}
+}
+
+// mapTable returns the map variant of a base table.
+func mapTable(base Table) Table {
+	switch base {
+	case TableStrings:
+		return TableStringMaps
+	case TableInts:
+		return TableIntMaps
+	case TableUints:
+		return TableUintMaps
+	case TableFloats:
+		return TableFloatMaps
+	case TableBools:
+		return TableBoolMaps
+	case TableTimes:
+		return TableTimeMaps
+	case TableBytes:
+		return TableByteMaps
 	default:
 		return ""
 	}

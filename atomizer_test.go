@@ -2,6 +2,7 @@ package atom
 
 import (
 	"bytes"
+	"errors"
 	"strings"
 	"sync"
 	"testing"
@@ -1126,22 +1127,31 @@ func TestConcurrentDifferentTypes(t *testing.T) {
 	}
 }
 
-// TestUnsupportedMap tests that map fields produce an error.
-type TestUnsupportedMap struct {
+// TestSupportedMap tests that string-keyed map fields are supported.
+type TestSupportedMap struct {
 	Labels map[string]string
 	Name   string
 }
 
-func TestUseUnsupportedMapField(t *testing.T) {
-	_, err := Use[TestUnsupportedMap]()
-	if err == nil {
-		t.Fatal("expected error for unsupported map field")
+func TestUseSupportedMapField(t *testing.T) {
+	atomizer, err := Use[TestSupportedMap]()
+	if err != nil {
+		t.Fatalf("unexpected error for map field: %v", err)
 	}
-	if !strings.Contains(err.Error(), "map types are not supported") {
-		t.Errorf("expected error about map types, got: %v", err)
+
+	original := &TestSupportedMap{
+		Name:   "test",
+		Labels: map[string]string{"env": "prod", "tier": "frontend"},
 	}
-	if !strings.Contains(err.Error(), "Labels") {
-		t.Errorf("expected error to mention field name 'Labels', got: %v", err)
+
+	atom := atomizer.Atomize(original)
+	restored, err := atomizer.Deatomize(atom)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if restored.Labels["env"] != "prod" {
+		t.Errorf("expected Labels[env]=prod, got %s", restored.Labels["env"])
 	}
 }
 
@@ -1941,5 +1951,275 @@ func TestNestedSliceEmptySlice(t *testing.T) {
 	// Empty slice should not create entry
 	if _, ok := atom.NestedSlices["Addresses"]; ok {
 		t.Error("expected empty slice to not create NestedSlices entry")
+	}
+}
+
+// --- Map type tests ---
+
+// TestWithMaps tests basic map types.
+type TestWithMaps struct {
+	Name       string
+	StringMap  map[string]string
+	IntMap     map[string]int64
+	UintMap    map[string]uint64
+	FloatMap   map[string]float64
+	BoolMap    map[string]bool
+	TimeMap    map[string]time.Time
+	ByteMap    map[string][]byte
+}
+
+func TestMapRoundTrip(t *testing.T) {
+	atomizer := mustUse[TestWithMaps](t)
+
+	ts := time.Date(2024, 6, 15, 12, 0, 0, 0, time.UTC)
+	original := &TestWithMaps{
+		Name:       "MapTest",
+		StringMap:  map[string]string{"key1": "value1", "key2": "value2"},
+		IntMap:     map[string]int64{"a": 10, "b": 20},
+		UintMap:    map[string]uint64{"x": 100, "y": 200},
+		FloatMap:   map[string]float64{"pi": 3.14, "e": 2.71},
+		BoolMap:    map[string]bool{"enabled": true, "disabled": false},
+		TimeMap:    map[string]time.Time{"created": ts},
+		ByteMap:    map[string][]byte{"data": {0x01, 0x02, 0x03}},
+	}
+
+	atom := atomizer.Atomize(original)
+
+	// Verify storage
+	if atom.StringMaps["StringMap"]["key1"] != "value1" {
+		t.Errorf("expected StringMap[key1]=value1, got %s", atom.StringMaps["StringMap"]["key1"])
+	}
+	if atom.IntMaps["IntMap"]["a"] != 10 {
+		t.Errorf("expected IntMap[a]=10, got %d", atom.IntMaps["IntMap"]["a"])
+	}
+
+	restored, err := atomizer.Deatomize(atom)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if restored.Name != original.Name {
+		t.Errorf("expected Name %s, got %s", original.Name, restored.Name)
+	}
+	if restored.StringMap["key1"] != original.StringMap["key1"] {
+		t.Errorf("expected StringMap[key1] %s, got %s", original.StringMap["key1"], restored.StringMap["key1"])
+	}
+	if restored.IntMap["a"] != original.IntMap["a"] {
+		t.Errorf("expected IntMap[a] %d, got %d", original.IntMap["a"], restored.IntMap["a"])
+	}
+	if restored.UintMap["x"] != original.UintMap["x"] {
+		t.Errorf("expected UintMap[x] %d, got %d", original.UintMap["x"], restored.UintMap["x"])
+	}
+	if restored.FloatMap["pi"] != original.FloatMap["pi"] {
+		t.Errorf("expected FloatMap[pi] %f, got %f", original.FloatMap["pi"], restored.FloatMap["pi"])
+	}
+	if restored.BoolMap["enabled"] != original.BoolMap["enabled"] {
+		t.Errorf("expected BoolMap[enabled] %v, got %v", original.BoolMap["enabled"], restored.BoolMap["enabled"])
+	}
+	if !restored.TimeMap["created"].Equal(original.TimeMap["created"]) {
+		t.Errorf("expected TimeMap[created] %v, got %v", original.TimeMap["created"], restored.TimeMap["created"])
+	}
+	if !bytes.Equal(restored.ByteMap["data"], original.ByteMap["data"]) {
+		t.Errorf("expected ByteMap[data] %v, got %v", original.ByteMap["data"], restored.ByteMap["data"])
+	}
+}
+
+func TestMapNil(t *testing.T) {
+	atomizer := mustUse[TestWithMaps](t)
+
+	original := &TestWithMaps{
+		Name:      "NilMaps",
+		StringMap: nil,
+		IntMap:    nil,
+	}
+
+	atom := atomizer.Atomize(original)
+
+	// Nil maps should not create entries
+	if _, ok := atom.StringMaps["StringMap"]; ok {
+		t.Error("expected nil map to not create entry")
+	}
+
+	restored, err := atomizer.Deatomize(atom)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if restored.StringMap != nil {
+		t.Errorf("expected nil StringMap, got %v", restored.StringMap)
+	}
+}
+
+func TestMapEmpty(t *testing.T) {
+	atomizer := mustUse[TestWithMaps](t)
+
+	original := &TestWithMaps{
+		Name:      "EmptyMaps",
+		StringMap: map[string]string{},
+		IntMap:    map[string]int64{},
+	}
+
+	atom := atomizer.Atomize(original)
+
+	// Empty maps should create entries (unlike nil)
+	if _, ok := atom.StringMaps["StringMap"]; !ok {
+		t.Error("expected empty map to create entry")
+	}
+
+	restored, err := atomizer.Deatomize(atom)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if restored.StringMap == nil {
+		t.Error("expected non-nil empty StringMap")
+	}
+	if len(restored.StringMap) != 0 {
+		t.Errorf("expected empty StringMap, got %v", restored.StringMap)
+	}
+}
+
+// TestWithWidthConversionMap tests map with narrow integer types.
+type TestWithWidthConversionMap struct {
+	Int8Map  map[string]int8
+	Int16Map map[string]int16
+}
+
+func TestMapWidthConversion(t *testing.T) {
+	atomizer := mustUse[TestWithWidthConversionMap](t)
+
+	original := &TestWithWidthConversionMap{
+		Int8Map:  map[string]int8{"a": 10, "b": -5},
+		Int16Map: map[string]int16{"x": 1000, "y": -500},
+	}
+
+	atom := atomizer.Atomize(original)
+
+	// Verify stored as int64 internally
+	if atom.IntMaps["Int8Map"]["a"] != 10 {
+		t.Errorf("expected Int8Map[a]=10, got %d", atom.IntMaps["Int8Map"]["a"])
+	}
+
+	restored, err := atomizer.Deatomize(atom)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if restored.Int8Map["a"] != 10 {
+		t.Errorf("expected Int8Map[a]=10, got %d", restored.Int8Map["a"])
+	}
+	if restored.Int16Map["x"] != 1000 {
+		t.Errorf("expected Int16Map[x]=1000, got %d", restored.Int16Map["x"])
+	}
+}
+
+// TestWithNestedMap tests map with struct values.
+type TestWithNestedMap struct {
+	Name      string
+	Addresses map[string]TestAddress
+}
+
+func TestNestedMapRoundTrip(t *testing.T) {
+	atomizer := mustUse[TestWithNestedMap](t)
+
+	original := &TestWithNestedMap{
+		Name: "NestedMapTest",
+		Addresses: map[string]TestAddress{
+			"home":   {Street: "123 Main St", City: "Springfield"},
+			"work":   {Street: "456 Office Blvd", City: "Shelbyville"},
+			"summer": {Street: "789 Beach Rd", City: "Coastville"},
+		},
+	}
+
+	atom := atomizer.Atomize(original)
+
+	// Verify storage in NestedMaps
+	if len(atom.NestedMaps["Addresses"]) != 3 {
+		t.Errorf("expected 3 addresses in NestedMaps, got %d", len(atom.NestedMaps["Addresses"]))
+	}
+
+	restored, err := atomizer.Deatomize(atom)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if restored.Name != original.Name {
+		t.Errorf("expected Name %s, got %s", original.Name, restored.Name)
+	}
+	if len(restored.Addresses) != len(original.Addresses) {
+		t.Fatalf("expected %d addresses, got %d", len(original.Addresses), len(restored.Addresses))
+	}
+	if restored.Addresses["home"].Street != original.Addresses["home"].Street {
+		t.Errorf("expected home.Street %s, got %s", original.Addresses["home"].Street, restored.Addresses["home"].Street)
+	}
+	if restored.Addresses["work"].City != original.Addresses["work"].City {
+		t.Errorf("expected work.City %s, got %s", original.Addresses["work"].City, restored.Addresses["work"].City)
+	}
+}
+
+func TestNestedMapNil(t *testing.T) {
+	atomizer := mustUse[TestWithNestedMap](t)
+
+	original := &TestWithNestedMap{
+		Name:      "NilNestedMap",
+		Addresses: nil,
+	}
+
+	atom := atomizer.Atomize(original)
+
+	if _, ok := atom.NestedMaps["Addresses"]; ok {
+		t.Error("expected nil nested map to not create entry")
+	}
+
+	restored, err := atomizer.Deatomize(atom)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if restored.Addresses != nil {
+		t.Errorf("expected nil Addresses, got %v", restored.Addresses)
+	}
+}
+
+func TestNestedMapEmpty(t *testing.T) {
+	atomizer := mustUse[TestWithNestedMap](t)
+
+	original := &TestWithNestedMap{
+		Name:      "EmptyNestedMap",
+		Addresses: map[string]TestAddress{},
+	}
+
+	atom := atomizer.Atomize(original)
+
+	// Empty nested maps should create entries
+	if _, ok := atom.NestedMaps["Addresses"]; !ok {
+		t.Error("expected empty nested map to create entry")
+	}
+
+	restored, err := atomizer.Deatomize(atom)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if restored.Addresses == nil {
+		t.Error("expected non-nil empty Addresses")
+	}
+	if len(restored.Addresses) != 0 {
+		t.Errorf("expected empty Addresses, got %v", restored.Addresses)
+	}
+}
+
+// TestMapNonStringKey verifies non-string keys are rejected.
+type TestMapNonStringKey struct {
+	BadMap map[int]string
+}
+
+func TestMapNonStringKeyRejected(t *testing.T) {
+	_, err := Use[TestMapNonStringKey]()
+	if err == nil {
+		t.Fatal("expected error for non-string map key")
+	}
+	if !errors.Is(err, ErrUnsupportedType) {
+		t.Errorf("expected ErrUnsupportedType, got: %v", err)
 	}
 }

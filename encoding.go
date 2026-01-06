@@ -39,7 +39,7 @@ func intConverter(t reflect.Type) typeConverter {
 		},
 		fromInt64: func(i int64) (reflect.Value, error) {
 			if i < minVal || i > maxVal {
-				return reflect.Value{}, fmt.Errorf("value %d overflows %s (range %d to %d)", i, t.Kind(), minVal, maxVal)
+				return reflect.Value{}, fmt.Errorf("%w: value %d exceeds %s range [%d, %d]", ErrOverflow, i, t.Kind(), minVal, maxVal)
 			}
 			rv := reflect.New(t).Elem()
 			rv.SetInt(i)
@@ -69,7 +69,7 @@ func uintConverter(t reflect.Type) typeConverter {
 		},
 		fromUint64: func(u uint64) (reflect.Value, error) {
 			if u > maxVal {
-				return reflect.Value{}, fmt.Errorf("value %d overflows %s (max %d)", u, t.Kind(), maxVal)
+				return reflect.Value{}, fmt.Errorf("%w: value %d exceeds %s max %d", ErrOverflow, u, t.Kind(), maxVal)
 			}
 			rv := reflect.New(t).Elem()
 			rv.SetUint(u)
@@ -89,7 +89,7 @@ func floatConverter(t reflect.Type) typeConverter {
 			if t.Kind() == reflect.Float32 {
 				if !math.IsInf(f, 0) && !math.IsNaN(f) {
 					if f > math.MaxFloat32 || f < -math.MaxFloat32 {
-						return reflect.Value{}, fmt.Errorf("value %g overflows float32 (max %g)", f, math.MaxFloat32)
+						return reflect.Value{}, fmt.Errorf("%w: value %g exceeds float32 max %g", ErrOverflow, f, math.MaxFloat32)
 					}
 				}
 			}
@@ -109,6 +109,10 @@ func atomizeField(fp *fieldPlan, fv reflect.Value, dst *Atom) {
 		atomizePointer(fp, fv, dst)
 	case kindSlice:
 		atomizeSlice(fp, fv, dst)
+	case kindMap:
+		atomizeMap(fp, fv, dst)
+	case kindNestedMap:
+		atomizeNestedMap(fp, fv, dst)
 	case kindNested:
 		atomizeNested(fp, fv, dst)
 	case kindNestedSlice:
@@ -149,24 +153,7 @@ func atomizeScalar(fp *fieldPlan, fv reflect.Value, dst *Atom) {
 
 func atomizePointer(fp *fieldPlan, fv reflect.Value, dst *Atom) {
 	if fv.IsNil() {
-		// Store nil explicitly
-		switch fp.table {
-		case TableStringPtrs:
-			dst.StringPtrs[fp.name] = nil
-		case TableIntPtrs:
-			dst.IntPtrs[fp.name] = nil
-		case TableUintPtrs:
-			dst.UintPtrs[fp.name] = nil
-		case TableFloatPtrs:
-			dst.FloatPtrs[fp.name] = nil
-		case TableBoolPtrs:
-			dst.BoolPtrs[fp.name] = nil
-		case TableTimePtrs:
-			dst.TimePtrs[fp.name] = nil
-		case TableBytePtrs:
-			dst.BytePtrs[fp.name] = nil
-		}
-		return
+		return // Consistent with slices, maps, and nested pointers
 	}
 
 	elem := fv.Elem()
@@ -289,6 +276,74 @@ func atomizeNestedSlice(fp *fieldPlan, fv reflect.Value, dst *Atom) {
 	}
 }
 
+func atomizeMap(fp *fieldPlan, fv reflect.Value, dst *Atom) {
+	if fv.IsNil() {
+		return
+	}
+
+	switch fp.table {
+	case TableStringMaps:
+		m := make(map[string]string, fv.Len())
+		for iter := fv.MapRange(); iter.Next(); {
+			m[iter.Key().String()] = iter.Value().String()
+		}
+		dst.StringMaps[fp.name] = m
+	case TableIntMaps:
+		m := make(map[string]int64, fv.Len())
+		for iter := fv.MapRange(); iter.Next(); {
+			m[iter.Key().String()] = fp.converter.toInt64(iter.Value())
+		}
+		dst.IntMaps[fp.name] = m
+	case TableUintMaps:
+		m := make(map[string]uint64, fv.Len())
+		for iter := fv.MapRange(); iter.Next(); {
+			m[iter.Key().String()] = fp.converter.toUint64(iter.Value())
+		}
+		dst.UintMaps[fp.name] = m
+	case TableFloatMaps:
+		m := make(map[string]float64, fv.Len())
+		for iter := fv.MapRange(); iter.Next(); {
+			m[iter.Key().String()] = fp.converter.toFloat64(iter.Value())
+		}
+		dst.FloatMaps[fp.name] = m
+	case TableBoolMaps:
+		m := make(map[string]bool, fv.Len())
+		for iter := fv.MapRange(); iter.Next(); {
+			m[iter.Key().String()] = iter.Value().Bool()
+		}
+		dst.BoolMaps[fp.name] = m
+	case TableTimeMaps:
+		m := make(map[string]time.Time, fv.Len())
+		for iter := fv.MapRange(); iter.Next(); {
+			m[iter.Key().String()] = iter.Value().Interface().(time.Time) //nolint:errcheck // type assertion is safe
+		}
+		dst.TimeMaps[fp.name] = m
+	case TableByteMaps:
+		m := make(map[string][]byte, fv.Len())
+		for iter := fv.MapRange(); iter.Next(); {
+			m[iter.Key().String()] = iter.Value().Bytes()
+		}
+		dst.ByteMaps[fp.name] = m
+	}
+}
+
+func atomizeNestedMap(fp *fieldPlan, fv reflect.Value, dst *Atom) {
+	if fv.IsNil() {
+		return
+	}
+
+	m := make(map[string]Atom, fv.Len())
+	for iter := fv.MapRange(); iter.Next(); {
+		nestedAtom := fp.nested.newAtom()
+		// Map values aren't addressable, so create an addressable copy
+		elem := reflect.New(fp.elemType).Elem()
+		elem.Set(iter.Value())
+		fp.nested.atomize(elem.Addr().Interface(), nestedAtom)
+		m[iter.Key().String()] = *nestedAtom
+	}
+	dst.NestedMaps[fp.name] = m
+}
+
 // deatomizeField reconstructs a single field value from its Atom representation.
 func deatomizeField(fp *fieldPlan, src *Atom, fv reflect.Value) error {
 	switch fp.kind {
@@ -298,6 +353,10 @@ func deatomizeField(fp *fieldPlan, src *Atom, fv reflect.Value) error {
 		return deatomizePointer(fp, src, fv)
 	case kindSlice:
 		return deatomizeSlice(fp, src, fv)
+	case kindMap:
+		return deatomizeMap(fp, src, fv)
+	case kindNestedMap:
+		return deatomizeNestedMap(fp, src, fv)
 	case kindNested:
 		return deatomizeNested(fp, src, fv)
 	case kindNestedSlice:
@@ -352,7 +411,7 @@ func deatomizeScalar(fp *fieldPlan, src *Atom, fv reflect.Value) error {
 			if fv.Kind() == reflect.Array {
 				// Validate length matches array size
 				if len(v) != fv.Len() {
-					return fmt.Errorf("field %q: byte slice length %d does not match array size %d", fp.name, len(v), fv.Len())
+					return fmt.Errorf("field %q: %w: byte slice length %d does not match array size %d", fp.name, ErrSizeMismatch, len(v), fv.Len())
 				}
 				// Copy bytes into array
 				for i := 0; i < len(v); i++ {
@@ -583,5 +642,98 @@ func deatomizeNestedSlice(fp *fieldPlan, src *Atom, fv reflect.Value) error {
 		}
 	}
 	fv.Set(slice)
+	return nil
+}
+
+func deatomizeMap(fp *fieldPlan, src *Atom, fv reflect.Value) error {
+	switch fp.table {
+	case TableStringMaps:
+		if v, ok := src.StringMaps[fp.name]; ok {
+			m := reflect.MakeMapWithSize(fv.Type(), len(v))
+			for key, val := range v {
+				m.SetMapIndex(reflect.ValueOf(key), reflect.ValueOf(val))
+			}
+			fv.Set(m)
+		}
+	case TableIntMaps:
+		if v, ok := src.IntMaps[fp.name]; ok {
+			m := reflect.MakeMapWithSize(fv.Type(), len(v))
+			for key, val := range v {
+				rv, err := fp.converter.fromInt64(val)
+				if err != nil {
+					return fmt.Errorf("field %q[%s]: %w", fp.name, key, err)
+				}
+				m.SetMapIndex(reflect.ValueOf(key), rv)
+			}
+			fv.Set(m)
+		}
+	case TableUintMaps:
+		if v, ok := src.UintMaps[fp.name]; ok {
+			m := reflect.MakeMapWithSize(fv.Type(), len(v))
+			for key, val := range v {
+				rv, err := fp.converter.fromUint64(val)
+				if err != nil {
+					return fmt.Errorf("field %q[%s]: %w", fp.name, key, err)
+				}
+				m.SetMapIndex(reflect.ValueOf(key), rv)
+			}
+			fv.Set(m)
+		}
+	case TableFloatMaps:
+		if v, ok := src.FloatMaps[fp.name]; ok {
+			m := reflect.MakeMapWithSize(fv.Type(), len(v))
+			for key, val := range v {
+				rv, err := fp.converter.fromFloat64(val)
+				if err != nil {
+					return fmt.Errorf("field %q[%s]: %w", fp.name, key, err)
+				}
+				m.SetMapIndex(reflect.ValueOf(key), rv)
+			}
+			fv.Set(m)
+		}
+	case TableBoolMaps:
+		if v, ok := src.BoolMaps[fp.name]; ok {
+			m := reflect.MakeMapWithSize(fv.Type(), len(v))
+			for key, val := range v {
+				m.SetMapIndex(reflect.ValueOf(key), reflect.ValueOf(val))
+			}
+			fv.Set(m)
+		}
+	case TableTimeMaps:
+		if v, ok := src.TimeMaps[fp.name]; ok {
+			m := reflect.MakeMapWithSize(fv.Type(), len(v))
+			for key, val := range v {
+				m.SetMapIndex(reflect.ValueOf(key), reflect.ValueOf(val))
+			}
+			fv.Set(m)
+		}
+	case TableByteMaps:
+		if v, ok := src.ByteMaps[fp.name]; ok {
+			m := reflect.MakeMapWithSize(fv.Type(), len(v))
+			for key, val := range v {
+				m.SetMapIndex(reflect.ValueOf(key), reflect.ValueOf(val))
+			}
+			fv.Set(m)
+		}
+	}
+	return nil
+}
+
+func deatomizeNestedMap(fp *fieldPlan, src *Atom, fv reflect.Value) error {
+	v, ok := src.NestedMaps[fp.name]
+	if !ok {
+		return nil
+	}
+
+	m := reflect.MakeMapWithSize(fv.Type(), len(v))
+	for key := range v {
+		nested := v[key] // copy required - map values aren't addressable
+		elem := reflect.New(fp.elemType).Elem()
+		if err := fp.nested.deatomize(&nested, elem.Addr().Interface()); err != nil {
+			return fmt.Errorf("field %q[%s]: %w", fp.name, key, err)
+		}
+		m.SetMapIndex(reflect.ValueOf(key), elem)
+	}
+	fv.Set(m)
 	return nil
 }

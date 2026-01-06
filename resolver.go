@@ -179,6 +179,30 @@ func allocateAtom(spec Spec, tableSet map[Table]int) *Atom {
 	if n := tableSet[TableByteSlices]; n > 0 {
 		atom.ByteSlices = make(map[string][][]byte, n)
 	}
+	if n := tableSet[TableStringMaps]; n > 0 {
+		atom.StringMaps = make(map[string]map[string]string, n)
+	}
+	if n := tableSet[TableIntMaps]; n > 0 {
+		atom.IntMaps = make(map[string]map[string]int64, n)
+	}
+	if n := tableSet[TableUintMaps]; n > 0 {
+		atom.UintMaps = make(map[string]map[string]uint64, n)
+	}
+	if n := tableSet[TableFloatMaps]; n > 0 {
+		atom.FloatMaps = make(map[string]map[string]float64, n)
+	}
+	if n := tableSet[TableBoolMaps]; n > 0 {
+		atom.BoolMaps = make(map[string]map[string]bool, n)
+	}
+	if n := tableSet[TableTimeMaps]; n > 0 {
+		atom.TimeMaps = make(map[string]map[string]time.Time, n)
+	}
+	if n := tableSet[TableByteMaps]; n > 0 {
+		atom.ByteMaps = make(map[string]map[string][]byte, n)
+	}
+	if n := tableSet[TableNestedMaps]; n > 0 {
+		atom.NestedMaps = make(map[string]map[string]Atom, n)
+	}
 
 	return atom
 }

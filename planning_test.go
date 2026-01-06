@@ -325,14 +325,34 @@ func TestBuildFieldPlanPointerType(t *testing.T) {
 	}
 }
 
-func TestBuildFieldPlanUnsupportedMap(t *testing.T) {
+func TestBuildFieldPlanSupportedMap(t *testing.T) {
 	type WithMap struct {
 		M map[string]string
 	}
 
-	_, err := buildFieldPlan(reflect.TypeFor[WithMap]())
+	plans, err := buildFieldPlan(reflect.TypeFor[WithMap]())
+	if err != nil {
+		t.Errorf("unexpected error for supported map field: %v", err)
+	}
+	if len(plans) != 1 {
+		t.Errorf("got %d plans, want 1", len(plans))
+	}
+	if plans[0].kind != kindMap {
+		t.Errorf("got kind %d, want kindMap (%d)", plans[0].kind, kindMap)
+	}
+	if plans[0].table != TableStringMaps {
+		t.Errorf("got table %s, want TableStringMaps", plans[0].table)
+	}
+}
+
+func TestBuildFieldPlanUnsupportedMapKey(t *testing.T) {
+	type WithIntKeyMap struct {
+		M map[int]string
+	}
+
+	_, err := buildFieldPlan(reflect.TypeFor[WithIntKeyMap]())
 	if err == nil {
-		t.Error("expected error for map field")
+		t.Error("expected error for non-string map key")
 	}
 }
 

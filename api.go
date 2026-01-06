@@ -41,6 +41,14 @@ const (
 	TableBoolSlices   Table = "bool_slices"
 	TableTimeSlices   Table = "time_slices"
 	TableByteSlices   Table = "byte_slices"
+	TableStringMaps   Table = "string_maps"
+	TableIntMaps      Table = "int_maps"
+	TableUintMaps     Table = "uint_maps"
+	TableFloatMaps    Table = "float_maps"
+	TableBoolMaps     Table = "bool_maps"
+	TableTimeMaps     Table = "time_maps"
+	TableByteMaps     Table = "byte_maps"
+	TableNestedMaps   Table = "nested_maps"
 )
 
 // AllTables returns all table types in canonical order.
@@ -49,6 +57,7 @@ func AllTables() []Table {
 		TableStrings, TableInts, TableUints, TableFloats, TableBools, TableTimes, TableBytes,
 		TableBytePtrs, TableStringPtrs, TableIntPtrs, TableUintPtrs, TableFloatPtrs, TableBoolPtrs, TableTimePtrs,
 		TableStringSlices, TableIntSlices, TableUintSlices, TableFloatSlices, TableBoolSlices, TableTimeSlices, TableByteSlices,
+		TableStringMaps, TableIntMaps, TableUintMaps, TableFloatMaps, TableBoolMaps, TableTimeMaps, TableByteMaps, TableNestedMaps,
 	}
 }
 
@@ -86,9 +95,19 @@ type Atom struct {
 	TimeSlices   map[string][]time.Time
 	ByteSlices   map[string][][]byte
 
+	// Maps (string-keyed)
+	StringMaps map[string]map[string]string
+	IntMaps    map[string]map[string]int64
+	UintMaps   map[string]map[string]uint64
+	FloatMaps  map[string]map[string]float64
+	BoolMaps   map[string]map[string]bool
+	TimeMaps   map[string]map[string]time.Time
+	ByteMaps   map[string]map[string][]byte
+
 	// Nested
 	Nested       map[string]Atom
 	NestedSlices map[string][]Atom
+	NestedMaps   map[string]map[string]Atom
 
 	// Metadata (placed last for optimal alignment)
 	Spec Spec
@@ -295,6 +314,80 @@ func (a *Atom) Clone() *Atom {
 		}
 	}
 
+	// Clone maps
+	if a.StringMaps != nil {
+		clone.StringMaps = make(map[string]map[string]string, len(a.StringMaps))
+		for k, v := range a.StringMaps {
+			m := make(map[string]string, len(v))
+			for mk, mv := range v {
+				m[mk] = mv
+			}
+			clone.StringMaps[k] = m
+		}
+	}
+	if a.IntMaps != nil {
+		clone.IntMaps = make(map[string]map[string]int64, len(a.IntMaps))
+		for k, v := range a.IntMaps {
+			m := make(map[string]int64, len(v))
+			for mk, mv := range v {
+				m[mk] = mv
+			}
+			clone.IntMaps[k] = m
+		}
+	}
+	if a.UintMaps != nil {
+		clone.UintMaps = make(map[string]map[string]uint64, len(a.UintMaps))
+		for k, v := range a.UintMaps {
+			m := make(map[string]uint64, len(v))
+			for mk, mv := range v {
+				m[mk] = mv
+			}
+			clone.UintMaps[k] = m
+		}
+	}
+	if a.FloatMaps != nil {
+		clone.FloatMaps = make(map[string]map[string]float64, len(a.FloatMaps))
+		for k, v := range a.FloatMaps {
+			m := make(map[string]float64, len(v))
+			for mk, mv := range v {
+				m[mk] = mv
+			}
+			clone.FloatMaps[k] = m
+		}
+	}
+	if a.BoolMaps != nil {
+		clone.BoolMaps = make(map[string]map[string]bool, len(a.BoolMaps))
+		for k, v := range a.BoolMaps {
+			m := make(map[string]bool, len(v))
+			for mk, mv := range v {
+				m[mk] = mv
+			}
+			clone.BoolMaps[k] = m
+		}
+	}
+	if a.TimeMaps != nil {
+		clone.TimeMaps = make(map[string]map[string]time.Time, len(a.TimeMaps))
+		for k, v := range a.TimeMaps {
+			m := make(map[string]time.Time, len(v))
+			for mk, mv := range v {
+				m[mk] = mv
+			}
+			clone.TimeMaps[k] = m
+		}
+	}
+	if a.ByteMaps != nil {
+		clone.ByteMaps = make(map[string]map[string][]byte, len(a.ByteMaps))
+		for k, v := range a.ByteMaps {
+			m := make(map[string][]byte, len(v))
+			for mk, mv := range v {
+				cp := make([]byte, len(mv))
+				copy(cp, mv)
+				m[mk] = cp
+			}
+			clone.ByteMaps[k] = m
+		}
+	}
+
 	// Clone nested
 	if a.Nested != nil {
 		clone.Nested = make(map[string]Atom, len(a.Nested))
@@ -311,6 +404,17 @@ func (a *Atom) Clone() *Atom {
 				cp[i] = *v[i].Clone()
 			}
 			clone.NestedSlices[k] = cp
+		}
+	}
+	if a.NestedMaps != nil {
+		clone.NestedMaps = make(map[string]map[string]Atom, len(a.NestedMaps))
+		for k, v := range a.NestedMaps {
+			m := make(map[string]Atom, len(v))
+			for mk := range v {
+				mv := v[mk]
+				m[mk] = *mv.Clone()
+			}
+			clone.NestedMaps[k] = m
 		}
 	}
 

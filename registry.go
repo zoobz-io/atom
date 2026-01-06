@@ -1,6 +1,7 @@
 package atom
 
 import (
+	"fmt"
 	"reflect"
 	"sync"
 
@@ -57,25 +58,6 @@ func Use[T any]() (*Atomizer[T], error) {
 		}
 	}
 
-	// Build and register scanner
-	scanner, err := buildScanner(ra.plan, spec)
-	if err != nil {
-		// Scanner build errors are not fatal - type can still be used without scanning
-		// Store error but continue
-		registrationErrors[typ] = err
-	} else {
-		registerScanner(typ, scanner)
-	}
-
-	// Build and register codec
-	codec, err := buildCodec(ra.plan, spec)
-	if err != nil {
-		// Codec build errors are not fatal - type can still be used without encoding
-		registrationErrors[typ] = err
-	} else {
-		registerCodec(typ, codec)
-	}
-
 	return &Atomizer[T]{inner: ra}, nil
 }
 
@@ -124,6 +106,18 @@ func ensureRegistered(typ reflect.Type) *reflectAtomizer {
 		registrationErrors[typ] = err
 		return ra
 	}
+
+	// Check for errors in nested types (recursive propagation)
+	for i := range plan {
+		if plan[i].nested != nil {
+			if nestedErr, hasErr := registrationErrors[plan[i].nested.typ]; hasErr {
+				registrationErrors[typ] = fmt.Errorf("type %s: nested type %s: %w",
+					typ.Name(), plan[i].nested.typ.Name(), nestedErr)
+				return ra
+			}
+		}
+	}
+
 	ra.plan = plan
 	ra.tableSet = computeTableSet(ra.plan)
 	ra.hasAtomizable = implementsAtomizable(typ)
