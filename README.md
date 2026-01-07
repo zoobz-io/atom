@@ -287,6 +287,30 @@ It does **not** provide:
 
 This design allows atom to be used within storage libraries without circular dependencies.
 
+## Documentation
+
+### Learning
+- [Quickstart](docs/2.learn/1.quickstart.md) — Get started in 5 minutes
+- [Core Concepts](docs/2.learn/2.concepts.md) — Atoms, tables, specs
+- [Architecture](docs/2.learn/3.architecture.md) — Internal design
+
+### Guides
+- [Basic Usage](docs/3.guides/1.basic-usage.md) — Common patterns
+- [Custom Types](docs/3.guides/2.custom-types.md) — Named types and enums
+- [Nested Structs](docs/3.guides/3.nested-structs.md) — Composition
+- [Interfaces](docs/3.guides/4.interfaces.md) — Custom serialization
+- [Testing](docs/3.guides/5.testing.md) — Test strategies
+
+### Cookbook
+- [Code Generation](docs/4.cookbook/1.codegen.md) — Eliminating reflection
+- [Serialization](docs/4.cookbook/2.serialization.md) — Encoding atoms
+- [Migrations](docs/4.cookbook/3.migrations.md) — Schema evolution
+
+### Reference
+- [API Reference](docs/5.reference/1.api.md) — Complete API
+- [Tables Reference](docs/5.reference/2.tables.md) — All table types
+- [Testing Reference](docs/5.reference/3.testing.md) — Test utilities
+
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
