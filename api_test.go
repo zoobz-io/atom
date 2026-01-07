@@ -561,3 +561,86 @@ func TestClone_NestedSlices(t *testing.T) {
 		t.Error("clone nested slice affected by original modification")
 	}
 }
+
+func TestClone_Maps(t *testing.T) {
+	now := time.Now()
+	a := &Atom{
+		StringMaps: map[string]map[string]string{"labels": {"env": "prod", "region": "us"}},
+		IntMaps:    map[string]map[string]int64{"counts": {"a": 1, "b": 2}},
+		UintMaps:   map[string]map[string]uint64{"ids": {"x": 10, "y": 20}},
+		FloatMaps:  map[string]map[string]float64{"rates": {"fast": 1.5, "slow": 0.5}},
+		BoolMaps:   map[string]map[string]bool{"flags": {"enabled": true, "debug": false}},
+		TimeMaps:   map[string]map[string]time.Time{"timestamps": {"created": now}},
+		ByteMaps:   map[string]map[string][]byte{"data": {"chunk1": {0x01, 0x02}, "chunk2": {0x03}}},
+	}
+
+	clone := a.Clone()
+
+	// Verify values copied
+	if clone.StringMaps["labels"]["env"] != "prod" {
+		t.Error("string map not cloned")
+	}
+	if clone.IntMaps["counts"]["a"] != 1 {
+		t.Error("int map not cloned")
+	}
+	if clone.UintMaps["ids"]["x"] != 10 {
+		t.Error("uint map not cloned")
+	}
+	if clone.FloatMaps["rates"]["fast"] != 1.5 {
+		t.Error("float map not cloned")
+	}
+	if clone.BoolMaps["flags"]["enabled"] != true {
+		t.Error("bool map not cloned")
+	}
+	if !clone.TimeMaps["timestamps"]["created"].Equal(now) {
+		t.Error("time map not cloned")
+	}
+	if len(clone.ByteMaps["data"]["chunk1"]) != 2 || clone.ByteMaps["data"]["chunk1"][0] != 0x01 {
+		t.Error("byte map not cloned")
+	}
+
+	// Verify deep copy - modifying original doesn't affect clone
+	a.StringMaps["labels"]["env"] = "dev"
+	a.IntMaps["counts"]["a"] = 999
+	a.ByteMaps["data"]["chunk1"][0] = 0xFF
+
+	if clone.StringMaps["labels"]["env"] != "prod" {
+		t.Error("clone string map affected by original modification")
+	}
+	if clone.IntMaps["counts"]["a"] != 1 {
+		t.Error("clone int map affected by original modification")
+	}
+	if clone.ByteMaps["data"]["chunk1"][0] != 0x01 {
+		t.Error("clone byte map affected by original modification")
+	}
+}
+
+func TestClone_NestedMaps(t *testing.T) {
+	a := &Atom{
+		NestedMaps: map[string]map[string]Atom{
+			"users": {
+				"alice": {Strings: map[string]string{"name": "Alice"}, Ints: map[string]int64{"age": 30}},
+				"bob":   {Strings: map[string]string{"name": "Bob"}, Ints: map[string]int64{"age": 25}},
+			},
+		},
+	}
+
+	clone := a.Clone()
+
+	// Verify nested maps copied
+	if clone.NestedMaps["users"]["alice"].Strings["name"] != "Alice" {
+		t.Error("nested map not cloned")
+	}
+	if clone.NestedMaps["users"]["bob"].Ints["age"] != 25 {
+		t.Error("nested map int not cloned")
+	}
+
+	// Verify deep copy
+	aliceAtom := a.NestedMaps["users"]["alice"]
+	aliceAtom.Strings["name"] = "modified"
+	a.NestedMaps["users"]["alice"] = aliceAtom
+
+	if clone.NestedMaps["users"]["alice"].Strings["name"] != "Alice" {
+		t.Error("clone nested map affected by original modification")
+	}
+}
