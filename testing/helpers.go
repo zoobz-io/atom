@@ -3,8 +3,9 @@ package testing
 
 import (
 	"bytes"
+	"crypto/rand"
 	"fmt"
-	"math/rand"
+	"math/big"
 	"reflect"
 	"strings"
 	"testing"
@@ -379,47 +380,53 @@ func AssertMissingField(t *testing.T, a *atom.Atom, table atom.Table, key string
 // Random Data Generators.
 
 // RandomString generates a random string of given length.
-//
-//nolint:gosec // Weak random is acceptable for test data generation.
 func RandomString(length int) string {
 	const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 	b := make([]byte, length)
 	for i := range b {
-		b[i] = charset[rand.Intn(len(charset))]
+		n, err := rand.Int(rand.Reader, big.NewInt(int64(len(charset))))
+		if err != nil {
+			panic("crypto/rand failed: " + err.Error())
+		}
+		b[i] = charset[n.Int64()]
 	}
 	return string(b)
 }
 
 // RandomInt generates a random int64 in [lo, hi].
-//
-//nolint:gosec // Weak random is acceptable for test data generation.
 func RandomInt(lo, hi int64) int64 {
-	return lo + rand.Int63n(hi-lo+1)
+	n, err := rand.Int(rand.Reader, big.NewInt(hi-lo+1))
+	if err != nil {
+		panic("crypto/rand failed: " + err.Error())
+	}
+	return lo + n.Int64()
 }
 
 // RandomFloat generates a random float64 in [lo, hi).
-//
-//nolint:gosec // Weak random is acceptable for test data generation.
 func RandomFloat(lo, hi float64) float64 {
-	return lo + rand.Float64()*(hi-lo)
+	n, err := rand.Int(rand.Reader, big.NewInt(1<<53))
+	if err != nil {
+		panic("crypto/rand failed: " + err.Error())
+	}
+	return lo + (float64(n.Int64())/float64(1<<53))*(hi-lo)
 }
 
 // RandomBytes generates random bytes of given length.
-//
-//nolint:gosec // Weak random is acceptable for test data generation.
 func RandomBytes(length int) []byte {
 	b := make([]byte, length)
-	for i := range b {
-		b[i] = byte(rand.Intn(256))
+	if _, err := rand.Read(b); err != nil {
+		panic("crypto/rand failed: " + err.Error())
 	}
 	return b
 }
 
 // RandomTime generates a random time within the last year.
-//
-//nolint:gosec // Weak random is acceptable for test data generation.
 func RandomTime() time.Time {
 	now := time.Now()
-	delta := time.Duration(rand.Int63n(int64(365 * 24 * time.Hour)))
+	n, err := rand.Int(rand.Reader, big.NewInt(int64(365*24*time.Hour)))
+	if err != nil {
+		panic("crypto/rand failed: " + err.Error())
+	}
+	delta := time.Duration(n.Int64())
 	return now.Add(-delta)
 }
