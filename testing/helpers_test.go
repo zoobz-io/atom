@@ -1,6 +1,7 @@
 package testing
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
@@ -441,5 +442,140 @@ func TestDiffIntValues(t *testing.T) {
 	diff2 := Diff(c, d)
 	if diff2 == "<no differences>" {
 		t.Error("expected differences for missing Count")
+	}
+}
+
+// spyT captures test failures without failing the actual test.
+type spyT struct {
+	testing.TB
+	errors []string
+}
+
+func (*spyT) Helper() {}
+
+func (s *spyT) Errorf(format string, args ...interface{}) {
+	s.errors = append(s.errors, fmt.Sprintf(format, args...))
+}
+
+func (s *spyT) hasError() bool {
+	return len(s.errors) > 0
+}
+
+func TestAssertHasStringFailures(t *testing.T) {
+	a := NewAtomBuilder().String("Name", "Alice").Build()
+
+	// Missing field
+	spy := &spyT{}
+	AssertHasString(spy, a, "Missing", "value")
+	if !spy.hasError() {
+		t.Error("expected error for missing field")
+	}
+
+	// Wrong value
+	spy = &spyT{}
+	AssertHasString(spy, a, "Name", "Bob")
+	if !spy.hasError() {
+		t.Error("expected error for wrong value")
+	}
+}
+
+func TestAssertHasIntFailures(t *testing.T) {
+	a := NewAtomBuilder().Int("Age", 30).Build()
+
+	// Missing field
+	spy := &spyT{}
+	AssertHasInt(spy, a, "Missing", 0)
+	if !spy.hasError() {
+		t.Error("expected error for missing field")
+	}
+
+	// Wrong value
+	spy = &spyT{}
+	AssertHasInt(spy, a, "Age", 25)
+	if !spy.hasError() {
+		t.Error("expected error for wrong value")
+	}
+}
+
+func TestAssertHasFloatFailures(t *testing.T) {
+	a := NewAtomBuilder().Float("Score", 95.5).Build()
+
+	// Missing field
+	spy := &spyT{}
+	AssertHasFloat(spy, a, "Missing", 0)
+	if !spy.hasError() {
+		t.Error("expected error for missing field")
+	}
+
+	// Wrong value
+	spy = &spyT{}
+	AssertHasFloat(spy, a, "Score", 80.0)
+	if !spy.hasError() {
+		t.Error("expected error for wrong value")
+	}
+}
+
+func TestAssertHasBoolFailures(t *testing.T) {
+	a := NewAtomBuilder().Bool("Active", true).Build()
+
+	// Missing field
+	spy := &spyT{}
+	AssertHasBool(spy, a, "Missing", false)
+	if !spy.hasError() {
+		t.Error("expected error for missing field")
+	}
+
+	// Wrong value
+	spy = &spyT{}
+	AssertHasBool(spy, a, "Active", false)
+	if !spy.hasError() {
+		t.Error("expected error for wrong value")
+	}
+}
+
+func TestAssertHasNestedFailure(t *testing.T) {
+	a := NewAtomBuilder().Build() // No nested fields
+
+	spy := &spyT{}
+	AssertHasNested(spy, a, "Missing")
+	if !spy.hasError() {
+		t.Error("expected error for missing nested field")
+	}
+}
+
+func TestAssertMissingFieldWhenPresent(t *testing.T) {
+	a := NewAtomBuilder().
+		String("Name", "Alice").
+		Int("Age", 30).
+		Float("Score", 95.5).
+		Bool("Active", true).
+		Build()
+
+	// String present
+	spy := &spyT{}
+	AssertMissingField(spy, a, atom.TableStrings, "Name")
+	if !spy.hasError() {
+		t.Error("expected error when String field present")
+	}
+
+	// Int present
+	spy = &spyT{}
+	AssertMissingField(spy, a, atom.TableInts, "Age")
+	if !spy.hasError() {
+		t.Error("expected error when Int field present")
+	}
+
+	// Float present
+	spy = &spyT{}
+	AssertMissingField(spy, a, atom.TableFloats, "Score")
+	if !spy.hasError() {
+		t.Error("expected error when Float field present")
+	}
+
+	// Bool present
+	spy = &spyT{}
+	AssertMissingField(spy, a, atom.TableBools, "Active")
+	if !spy.hasError() {
+		t.Error("expected error when Bool field present")
 	}
 }

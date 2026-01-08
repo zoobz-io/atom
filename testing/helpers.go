@@ -15,7 +15,7 @@ import (
 )
 
 // MustUse registers an atomizer and fails the test on error.
-func MustUse[T any](t *testing.T) *atom.Atomizer[T] {
+func MustUse[T any](t testing.TB) *atom.Atomizer[T] {
 	t.Helper()
 	atomizer, err := atom.Use[T]()
 	if err != nil {
@@ -162,7 +162,7 @@ func NewRoundTripValidator[T any](atomizer *atom.Atomizer[T]) *RoundTripValidato
 }
 
 // Validate checks that round-trip preserves the value.
-func (v *RoundTripValidator[T]) Validate(t *testing.T, original *T) {
+func (v *RoundTripValidator[T]) Validate(t testing.TB, original *T) {
 	t.Helper()
 
 	a := v.atomizer.Atomize(original)
@@ -307,7 +307,7 @@ func GetBytes(a *atom.Atom, key string) ([]byte, bool) {
 // Assertions.
 
 // AssertHasString asserts a string field value.
-func AssertHasString(t *testing.T, a *atom.Atom, key, expected string) {
+func AssertHasString(t testing.TB, a *atom.Atom, key, expected string) {
 	t.Helper()
 	if got, ok := a.Strings[key]; !ok {
 		t.Errorf("expected Strings[%q] to exist", key)
@@ -317,7 +317,7 @@ func AssertHasString(t *testing.T, a *atom.Atom, key, expected string) {
 }
 
 // AssertHasInt asserts an int64 field value.
-func AssertHasInt(t *testing.T, a *atom.Atom, key string, expected int64) {
+func AssertHasInt(t testing.TB, a *atom.Atom, key string, expected int64) {
 	t.Helper()
 	if got, ok := a.Ints[key]; !ok {
 		t.Errorf("expected Ints[%q] to exist", key)
@@ -327,7 +327,7 @@ func AssertHasInt(t *testing.T, a *atom.Atom, key string, expected int64) {
 }
 
 // AssertHasFloat asserts a float64 field value.
-func AssertHasFloat(t *testing.T, a *atom.Atom, key string, expected float64) {
+func AssertHasFloat(t testing.TB, a *atom.Atom, key string, expected float64) {
 	t.Helper()
 	if got, ok := a.Floats[key]; !ok {
 		t.Errorf("expected Floats[%q] to exist", key)
@@ -337,7 +337,7 @@ func AssertHasFloat(t *testing.T, a *atom.Atom, key string, expected float64) {
 }
 
 // AssertHasBool asserts a bool field value.
-func AssertHasBool(t *testing.T, a *atom.Atom, key string, expected bool) {
+func AssertHasBool(t testing.TB, a *atom.Atom, key string, expected bool) {
 	t.Helper()
 	if got, ok := a.Bools[key]; !ok {
 		t.Errorf("expected Bools[%q] to exist", key)
@@ -347,7 +347,7 @@ func AssertHasBool(t *testing.T, a *atom.Atom, key string, expected bool) {
 }
 
 // AssertHasNested asserts a nested field exists.
-func AssertHasNested(t *testing.T, a *atom.Atom, key string) {
+func AssertHasNested(t testing.TB, a *atom.Atom, key string) {
 	t.Helper()
 	if _, ok := a.Nested[key]; !ok {
 		t.Errorf("expected Nested[%q] to exist", key)
@@ -355,7 +355,7 @@ func AssertHasNested(t *testing.T, a *atom.Atom, key string) {
 }
 
 // AssertMissingField asserts a field does not exist.
-func AssertMissingField(t *testing.T, a *atom.Atom, table atom.Table, key string) {
+func AssertMissingField(t testing.TB, a *atom.Atom, table atom.Table, key string) {
 	t.Helper()
 	switch table {
 	case atom.TableStrings:
