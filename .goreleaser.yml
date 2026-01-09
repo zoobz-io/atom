@@ -59,6 +59,8 @@ changelog:
       order: 999
   filters:
     exclude:
+      - "^docs:"
+      - "^test:"
       - "^Merge"
       - "^merge"
       - "^wip"
