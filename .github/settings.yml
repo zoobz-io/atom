@@ -2,7 +2,7 @@ repository:
   name: atom
   description: Type-segregated atomic value decomposition for Go
   homepage: https://github.com/zoobzio/atom
-  has_wiki: false
+  has_wiki: true
   has_downloads: true
   default_branch: main
   allow_squash_merge: true
