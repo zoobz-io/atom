@@ -1,7 +1,7 @@
 package atom
 
 import (
-	"github.com/zoobzio/sentinel"
+	"github.com/zoobz-io/sentinel"
 )
 
 func init() {

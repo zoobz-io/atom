@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/zoobzio/atom"
+	"github.com/zoobz-io/atom"
 )
 
 // Simple struct for basic benchmarks.

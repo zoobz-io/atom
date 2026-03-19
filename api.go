@@ -4,7 +4,7 @@ package atom
 import (
 	"time"
 
-	"github.com/zoobzio/sentinel"
+	"github.com/zoobz-io/sentinel"
 )
 
 func init() {

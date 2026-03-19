@@ -1,13 +1,13 @@
 # atom
 
-[![CI Status](https://github.com/zoobzio/atom/workflows/CI/badge.svg)](https://github.com/zoobzio/atom/actions/workflows/ci.yml)
-[![codecov](https://codecov.io/gh/zoobzio/atom/graph/badge.svg?branch=main)](https://codecov.io/gh/zoobzio/atom)
-[![Go Report Card](https://goreportcard.com/badge/github.com/zoobzio/atom)](https://goreportcard.com/report/github.com/zoobzio/atom)
-[![CodeQL](https://github.com/zoobzio/atom/workflows/CodeQL/badge.svg)](https://github.com/zoobzio/atom/security/code-scanning)
-[![Go Reference](https://pkg.go.dev/badge/github.com/zoobzio/atom.svg)](https://pkg.go.dev/github.com/zoobzio/atom)
-[![License](https://img.shields.io/github/license/zoobzio/atom)](LICENSE)
-[![Go Version](https://img.shields.io/github/go-mod/go-version/zoobzio/atom)](go.mod)
-[![Release](https://img.shields.io/github/v/release/zoobzio/atom)](https://github.com/zoobzio/atom/releases)
+[![CI Status](https://github.com/zoobz-io/atom/workflows/CI/badge.svg)](https://github.com/zoobz-io/atom/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/zoobz-io/atom/graph/badge.svg?branch=main)](https://codecov.io/gh/zoobz-io/atom)
+[![Go Report Card](https://goreportcard.com/badge/github.com/zoobz-io/atom)](https://goreportcard.com/report/github.com/zoobz-io/atom)
+[![CodeQL](https://github.com/zoobz-io/atom/workflows/CodeQL/badge.svg)](https://github.com/zoobz-io/atom/security/code-scanning)
+[![Go Reference](https://pkg.go.dev/badge/github.com/zoobz-io/atom.svg)](https://pkg.go.dev/github.com/zoobz-io/atom)
+[![License](https://img.shields.io/github/license/zoobz-io/atom)](LICENSE)
+[![Go Version](https://img.shields.io/github/go-mod/go-version/zoobz-io/atom)](go.mod)
+[![Release](https://img.shields.io/github/v/release/zoobz-io/atom)](https://github.com/zoobz-io/atom/releases)
 
 Type-segregated struct decomposition for Go.
 
@@ -68,7 +68,7 @@ Type-safe field access. Zero knowledge of the original struct.
 ## Install
 
 ```bash
-go get github.com/zoobzio/atom@latest
+go get github.com/zoobz-io/atom@latest
 ```
 
 Requires Go 1.24+.
@@ -80,7 +80,7 @@ package main
 
 import (
     "fmt"
-    "github.com/zoobzio/atom"
+    "github.com/zoobz-io/atom"
 )
 
 type Order struct {

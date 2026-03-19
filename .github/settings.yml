@@ -1,7 +1,7 @@
 repository:
   name: atom
   description: Type-segregated atomic value decomposition for Go
-  homepage: https://github.com/zoobzio/atom
+  homepage: https://atom.zoobz.io
   has_wiki: true
   has_downloads: true
   default_branch: main
@@ -9,6 +9,14 @@ repository:
   allow_merge_commit: false
   allow_rebase_merge: false
   delete_branch_on_merge: true
+  topics:
+    - go
+    - golang
+    - zoobzio
+    - struct
+    - decomposition
+    - reflection
+    - type-safety
 
 branches:
   - name: main
