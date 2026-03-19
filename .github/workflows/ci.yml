@@ -13,7 +13,6 @@ jobs:
     strategy:
       matrix:
         go-version: ['1.24', '1.25']
-
     steps:
     - uses: actions/checkout@v4
 
@@ -22,14 +21,8 @@ jobs:
       with:
         go-version: ${{ matrix.go-version }}
 
-    - name: Run tests
-      run: go test -v -race -coverprofile=coverage.txt -covermode=atomic ./...
-
-    - name: Upload coverage
-      if: matrix.go-version == '1.25'
-      uses: codecov/codecov-action@v4
-      with:
-        file: ./coverage.txt
+    - name: Test
+      run: make test
 
   lint:
     name: Lint
@@ -47,21 +40,12 @@ jobs:
       with:
         version: v2.7.2
         args: --config=.golangci.yml --timeout=5m
-        skip-cache: false
-        skip-save-cache: false
-
-    - name: Security Report
-      if: always()
-      run: |
-        golangci-lint run --config=.golangci.yml --out-format=json > lint-report.json || true
-        echo "### Security Scan Summary" >> $GITHUB_STEP_SUMMARY
-        echo "Linters with findings:" >> $GITHUB_STEP_SUMMARY
-        jq -r '.Issues[] | .FromLinter' lint-report.json 2>/dev/null | sort | uniq -c | sort -nr >> $GITHUB_STEP_SUMMARY || echo "No issues found" >> $GITHUB_STEP_SUMMARY
 
   security:
     name: Security
     runs-on: ubuntu-latest
     permissions:
+      contents: read
       security-events: write
     steps:
     - uses: actions/checkout@v4
@@ -71,15 +55,15 @@ jobs:
       with:
         go-version: '1.25'
 
-    - name: Install gosec
-      run: go install github.com/securego/gosec/v2/cmd/gosec@latest
+    - name: Run Gosec
+      uses: securego/gosec@master
+      with:
+        args: '-fmt sarif -out gosec-results.sarif --no-fail ./...'
 
-    - name: Run gosec security scanner
-      run: gosec -fmt sarif -out gosec-results.sarif ./...
-      continue-on-error: true
-
-    - name: Upload SARIF file
+    - name: Upload SARIF
       uses: github/codeql-action/upload-sarif@v3
+      if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+      continue-on-error: true
       with:
         sarif_file: gosec-results.sarif
 
@@ -95,18 +79,18 @@ jobs:
         go-version: '1.25'
 
     - name: Run benchmarks
-      run: make test-bench | tee benchmark_results.txt
+      run: make test-bench
 
-    - name: Upload benchmark results
+    - name: Upload results
       uses: actions/upload-artifact@v4
       with:
         name: benchmark-results
         path: benchmark_results.txt
+      if: always()
 
   ci-complete:
     name: CI Complete
-    runs-on: ubuntu-latest
     needs: [test, lint, security, benchmark]
+    runs-on: ubuntu-latest
     steps:
-    - name: CI Status
-      run: echo "All CI checks passed successfully"
+    - run: echo "CI complete"

@@ -52,7 +52,7 @@ go test -bench=. ./testing/benchmarks/...
 Import the testing package:
 
 ```go
-import atomtest "github.com/zoobzio/atom/testing"
+import atomtest "github.com/zoobz-io/atom/testing"
 ```
 
 ### AtomBuilder

@@ -1,7 +1,7 @@
-module github.com/zoobzio/atom
+module github.com/zoobz-io/atom
 
 go 1.24
 
 toolchain go1.25.5
 
-require github.com/zoobzio/sentinel v1.0.2
+require github.com/zoobz-io/sentinel v1.0.4

@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/zoobzio/atom"
+	"github.com/zoobz-io/atom"
 )
 
 // MustUse registers an atomizer and fails the test on error.

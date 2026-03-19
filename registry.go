@@ -5,7 +5,7 @@ import (
 	"reflect"
 	"sync"
 
-	"github.com/zoobzio/sentinel"
+	"github.com/zoobz-io/sentinel"
 )
 
 var (

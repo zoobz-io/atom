@@ -4,7 +4,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/zoobzio/atom"
+	"github.com/zoobz-io/atom"
 )
 
 // Types for concurrent testing.
